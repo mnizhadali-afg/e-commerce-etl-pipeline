@@ -1,0 +1,18 @@
+# Virtual environment
+venv/
+
+# Python compiled files
+__pycache__/
+*.pyc
+
+# IDE specific files
+.vscode/ # If you have user-specific settings you don't want to share
+
+# Data files (optional, depends on size/sensitivity)
+*.csv # You might want to include the source CSV if it's small and part of the project
+# In your case, since the CSV is the source, let's INCLUDE it for now.
+# So you might not need this line if you want the CSV in your repo.
+
+# Ignore downloaded archives and their extracted folders
+archive/
+archive.zip
