@@ -1,136 +1,72 @@
-# ETL Pipeline Project - Learning Notes
+# E-commerce Sales Data Analysis - Lessons Learned, Key Decisions & Best Practices (Data Cleaning Phase)
 
-## Phase 1: Data Ingestion & Initial Exploration
-
-### Goal:
-To load raw sales data from various sources (Amazon, International, Product Inventory) into pandas DataFrames and perform an initial inspection to understand their structure, data types, and identify immediate quality issues (e.g., missing values, incorrect data types).
-
-### Key Learnings & Methods Used:
-
-* **Project Setup:**
-    * **Virtual Environments (`venv`):** Learned to create and activate isolated Python environments to manage project dependencies. This prevents conflicts between different projects' library versions. (e.g., `python -m venv venv`, `source venv/bin/activate`)
-    * **Git & GitHub:** Understood the importance of version control for tracking code changes, collaboration, and backup. Practiced basic Git commands (`git init`, `git add .`, `git commit`, `.gitignore`). `.gitignore` is crucial for excluding large or temporary files (like `.csv` datasets, `venv/`, `__pycache__/`) from the repository.
-
-* **Data Loading & Initial Inspection (Pandas):**
-    * Used `pd.read_csv()` to load data into DataFrames.
-    * **`df.head()`:** Quick visual check of the first few rows.
-    * **`df.info()`:** Essential for understanding DataFrame structure:
-        * Column names
-        * Non-null counts (reveals missing values)
-        * Data types (`Dtype`)
-    * **`df.isnull().sum()`:** Precise count of missing values per column.
-
-## Phase 2: Data Transformation - Cleaning Individual DataFrames
-
-### Goal:
-To clean and standardize each raw DataFrame (`df_amazon`, `df_international`, `df_sale`) by addressing structural issues (column names, irrelevant columns) and correcting data types to prepare them for integration and analysis.
-
-### Key Learnings & Methods Used:
-
-* **Column Management:**
-    * **`df.drop()`:** Used to remove unnecessary columns (e.g., `index`, `Unnamed: 22`). Key understanding: `inplace=True` modifies the DataFrame directly, or one must reassign the result (`df = df.drop(...)`). `errors='ignore'` prevents errors if a column doesn't exist.
-    * **`df.rename()`:** Used to standardize column names to a consistent `snake_case` format (e.g., `Order ID` to `order_id`). This improves readability and maintainability.
-
-* **Data Type Correction (`dtype` Conversion):**
-    * **Dates (`object` to `datetime`):**
-        * Used `pd.to_datetime(column, format='...', errors='coerce')`.
-        * `format`: Explicitly defining the date format (e.g., `'%m-%d-%y'`) makes parsing faster and more robust, avoiding `UserWarning`s.
-        * `errors='coerce'`: Converts unparseable date strings into `NaT` (Not a Time), which is pandas' missing value for datetime, instead of raising an error.
-    * **Numerical Data (`object` to `int` or `float`):**
-        * **`pd.to_numeric(column, errors='coerce')`:** Converts strings to numbers. `errors='coerce'` turns non-numeric strings into `NaN` (Not a Number).
-        * **`float64` to `Int64` (Nullable Integer):**
-            * Encountered and debugged "cannot safely cast non-equivalent float64 to int64" error. This occurs when attempting to convert floats with decimal components (e.g., `1.5`) directly to integers, or when `NaN` values are present if using `np.int64`.
-            * **Solution (My Discovery!):** Used `.fillna(0).astype(np.int64)` for `quantity` and `current_stock`.
-                * `fillna(0)`: Replaces `NaN`s with `0`, making the column entirely numeric.
-                * `astype(np.int64)`: Safely converts the column to a non-nullable integer type, as all values are now whole numbers or 0.
-            * **Alternative (`Int64`):** Using `.astype('Int64')` (capital 'I') directly after `pd.to_numeric(..., errors='coerce')` allows the column to retain `NaN` values while still being an integer type where possible. My chosen `fillna(0)` approach is a specific imputation strategy.
-    * **Identifiers (`float64` to `object`):**
-        * Converted `ship_postal_code` from `float64` to `object` (string) using `.astype(str)`. This preserves potential leading zeros and treats postal codes as identifiers, not numbers for calculation.
-
----
-<!-- 
-### Learning Journey So Far: A Summary
-
-1.  **Setting up a Python Environment (Virtual Environments):**
-    * **Concept:** Understanding why **virtual environments (`venv`)** are essential for Python projects to isolate dependencies and avoid conflicts between different projects.
-    * **Skill:** You learned how to create, activate, and manage a `venv` using `python -m venv venv` and `source venv/bin/activate` (or `.\venv\Scripts\activate` on Windows).
-    * **Tooling:** Integrating `venv` with VS Code for a seamless development experience.
-
-2.  **Version Control (Git & GitHub Fundamentals):**
-    * **Concept:** The importance of **Git** for tracking changes in your code and **GitHub** for collaboration, backup, and portfolio building. You understand that Git is not just for teams but a personal productivity booster.
-    * **Skill:** You practiced initializing a Git repository (`git init`), adding files to staging (`git add .`), committing changes (`git commit -m "message"`), ignoring unnecessary files (`.gitignore`), and pushing to a remote GitHub repository (`git push`).
-    * **Best Practice:** Recognizing that large binary files and temporary folders (`.zip`, `archiv/`) should be excluded from version control to keep the repository lean and efficient.
-
-3.  **Initial Data Loading and Exploration with Pandas:**
-    * **Concept:** The first crucial step in any data project is to understand your raw data. You learned that data often comes from multiple sources and needs careful inspection.
-    * **Skill:** Using **Pandas** to:
-        * Load CSV files into **DataFrames (`pd.read_csv()`)**.
-        * Inspect the first few rows (`.head()`) to get a quick visual overview.
-        * Get a concise summary of the DataFrame's structure, including column names, non-null counts, and initial data types (`.info()`). This is critical for spotting immediate data quality issues.
-        * Identify and count missing values per column (`.isnull().sum()`).
-
-4.  **Data Cleaning: Structural & Type Transformations (Phase 1 of Transformation):**
-    * **Concept:** Raw data is rarely clean and ready for analysis. The transformation phase involves making it consistent and usable.
-    * **Skill:**
-        * **Dropping columns:** Removing irrelevant or problematic columns (`.drop(columns=..., inplace=True)`). You learned the importance of `inplace=True` or reassigning the DataFrame.
-        * **Renaming columns:** Standardizing column names to a consistent format (e.g., `snake_case`) using `.rename()`. This improves readability and maintainability.
-        * **Type Conversion:** Converting columns to appropriate data types:
-            * `object` (string) to **`datetime`** using `pd.to_datetime()`, handling potential parsing issues with `errors='coerce'` and explicitly specifying `format`.
-            * `float64` to `object` (string) for identifiers like `ship_postal_code` to preserve exact values.
-            * `object` (string) to **numeric (`float64` or `Int64`)** using `pd.to_numeric()` with `errors='coerce'`. This is a common and vital step for any numerical data that comes in as text.
-            * Understanding and debugging the `cannot safely cast non-equivalent float64 to int64` error, which often indicates non-whole numbers where integers are expected, or simply the need for nullable integer types.
-
-5.  **Handling Missing Values (Initial Strategy):**
-    * **Concept:** Missing values (`NaN`, `NaT`) are common and must be addressed. Different strategies (dropping, imputing) exist based on the column's importance and the context.
-    * **Skill:** You've started using `errors='coerce'` in type conversions, which effectively turns unparseable values into `NaN`/`NaT`, making them easier to identify and manage later.
-    * **Your clever solution for `quantity`:** Your use of `.fillna(0).astype(np.int64)` for the `quantity` column is a great example of handling missing values *before* a strict integer conversion.
-        * `pd.to_numeric(..., errors='coerce')`: Converts valid numbers, turns invalid ones into `NaN`.
-        * `.fillna(0)`: Replaces any `NaN` values with `0`. This is a form of **imputation**.
-        * `.astype(np.int64)`: Now that there are no `NaN`s (only numbers and zeros), it can safely convert the column to a non-nullable `int64`.
-        * **Coach's note:** This is a perfectly valid and often desirable approach, especially if a missing quantity genuinely means zero items. It's a specific **imputation strategy**. We'll talk more about imputation vs. dropping rows for missing data later.
+This document highlights key lessons learned, challenges overcome, important decisions made, and best practices followed during the data loading and cleaning of the e-commerce sales datasets.
 
 ---
 
-### **Coach's Corner: Reflection and Next Steps**
+## 1. Initial Data Discovery: Expect the Unexpected & Informing Decisions
 
-That was an efficient and successful round of transformations! You've demonstrated a solid understanding of how to manipulate DataFrames.
+### Challenge: Inconsistent Data Formats & Quality
+- **Observation:** We dealt with three distinct datasets (`amazon_sale_report.csv`, `International_sale_report.csv`, `SaleReport.csv`), each with its own structure, column names, and data types. For instance, `order_date` was an object in both sales reports, and some columns in the Amazon report had mixed types (`DtypeWarning`).
+- **Lesson Learned:** Always start with a thorough data profiling. Ignoring initial warnings or data type inconsistencies can lead to errors and unreliable analyses downstream.
+- **Best Practice Followed:**
+    - **Thorough Initial Data Profiling:** Used `.info()`, `.head()`, and `.isnull().sum()` on *each* raw dataset to understand structure, data types, and missing values from the outset. This systematic approach helped identify issues like incorrect `order_date` types and mixed-type columns early on.
+- **Key Decision:**
+    - **Standardized Date Format:** Decided to convert all `order_date` columns to `datetime64[ns]` across all relevant dataframes (`df_amazon`, `df_international`). This ensures consistent temporal analysis.
 
-**Big Lessons Learned from this phase:**
+### Challenge: Duplicate Product SKUs & Data Integrity
+- **Observation:** The `SaleReport.csv` (our product master) contained duplicate `sku` entries, despite `sku` being a presumed unique identifier for products.
+- **Lesson Learned:** Never assume uniqueness for identifier columns, even if logically they should be unique. Always verify data integrity.
+- **Best Practice Followed:**
+    - **Pre-emptive Duplicate Checking:** Systematically used `.duplicated().sum()` on the `sku` column in `df_sale` to identify and quantify duplicates before any merging. This ensures the foundational master data is clean.
+- **Key Decision:**
+    - **Unique Product Master:** Explicitly decided to drop duplicate `sku` entries in `df_sale`, keeping only the first occurrence. This ensures a clean, unique product master list, which is foundational for accurate sales aggregation.
 
-* **Iterative Cleaning:** Data cleaning is rarely a one-shot process. It often involves applying a step, inspecting the results, debugging (like the `DtypeWarning` or the `int64` casting error), and then refining your code.
-* **Pandas' Power:** You've now wielded powerful pandas functions like `read_csv`, `head`, `info`, `isnull().sum`, `drop`, `rename`, `to_datetime`, `to_numeric`, `fillna`, and `astype`. These are fundamental tools for any data professional.
-* **Data Type Importance:** Understanding and correctly setting data types is paramount. Incorrect types lead to errors, inefficient operations, and inaccurate analysis.
-* **Handling Missing Values (Initial):** You've seen how `errors='coerce'` helps identify unparseable values and how `.fillna().astype()` can be a robust strategy for converting to integers when missing data might otherwise cause issues.
-* **Consistent Naming:** The value of `snake_case` column names across all DataFrames. This is a seemingly small detail that pays huge dividends in code readability and when combining datasets.
+---
 
---- -->
+## 2. Merging Complex Datasets: A Stitch in Time Saves Nine
 
-## Phase 3: Data Integration - Combining Sales Data
-### Goal:
-To combine disparate sales data sources (`df_amazon`, `df_international`) into a single, unified transactional dataset (`df_combined_sales`) and then enrich it with product master data (`df_sale`) to create a comprehensive `df_final_sales` DataFrame ready for analysis.
+### Challenge: Column Name Discrepancies Across Datasets
+- **Observation:** When merging the Amazon and International sales reports, and then with the product master, many column names were similar but not identical, or entirely different (e.g., `amount` vs `total_amount`, or `product_category` appearing in multiple files).
+- **Lesson Learned:** Ambiguous or inconsistent column names are a major hurdle in data integration. A clear strategy for column harmonization is crucial.
+- **Best Practice Followed:**
+    - **Proactive Column Harmonization:** Before merging, explicitly defined and executed renaming strategies for columns (e.g., `total_amount` to `amount`, `product_category_df_sale` to `product_category`) to create a unified schema. This minimized confusion and errors post-merge.
+- **Key Decision:**
+    - **Standardized Naming Convention for Merged Data:** Renamed columns from `df_international` and `df_sale` to align with the more comprehensive `df_amazon` columns where possible. This creates a more cohesive final dataset suitable for cross-source analysis.
 
-### Key Learnings & Methods Used:
+### Challenge: Introducing Missing Values During Merging
+- **Observation:** After concatenating and merging the datasets, new `NaN` values appeared in columns that were originally clean in one dataset but missing in another (e.g., `order_id` in International sales records after merging with Amazon data).
+- **Lesson Learned:** Merging inherently introduces `NaN` values for data not present in all joined tables. This is a natural consequence, not an error.
+- **Best Practice Followed:**
+    - **Phased Cleaning Approach:** Implemented a dedicated post-merge cleaning phase to systematically address newly introduced `NaN` values, rather than trying to handle all missing values in one go.
 
-* **Combining DataFrames Vertically (`pd.concat()`):**
-    * **Purpose:** Used to stack DataFrames on top of each other (adding rows).
-    * **Arguments:**
-        * `[df1, df2, ...]`: List of DataFrames to concatenate.
-        * `ignore_index=True`: Crucial for creating a new, clean, continuous index for the combined DataFrame, preventing overlapping indices from original DataFrames.
-    * **Behavior:** Handles non-matching columns by creating a union of all columns and filling missing values with `NaN` in the respective rows. This is why `df_combined_sales` had more columns than its individual source DataFrames.
-    * **Example:** `df_combined_sales = pd.concat([df_amazon, df_international], ignore_index=True)`
+---
 
-* **Enriching Data via Merging (`pd.merge()` / Joining):**
-    * **Purpose:** Used to combine DataFrames horizontally (adding columns) based on common values in a shared column (the "key"). Essential for bringing together transactional data with master data (like product details).
-    * **Common Key Identification:** Identified `sku` as the common identifier between sales data and product data.
-    * **`how='left'` Merge Strategy:**
-        * **Concept:** Keeps all rows from the "left" DataFrame (`df_combined_sales`) and brings in matching rows/columns from the "right" DataFrame (`df_sale`).
-        * **Outcome:** If a `sku` in `df_combined_sales` has no match in `df_sale`, the newly added columns from `df_sale` will be `NaN`. This ensures no sales transactions are lost.
-    * **Automatic Suffixes (`_x`, `_y`):**
-        * **Discovery:** Observed that `pd.merge()` automatically adds `_x` to columns from the left DataFrame and `_y` to columns from the right DataFrame when there are duplicate column names (e.g., `product_category_x`, `product_category_y`).
-        * **Reason:** This avoids name collisions and indicates where the column originated.
-        * **Next Step (Planned):** We will address these suffixes by dropping the less authoritative `_x` columns and renaming `_y` columns for clarity.
-    * **Unexpected Row Increase (Important Discovery!):**
-        * **Observation:** Noted a significant increase in row count (from ~166k to ~369k) after merging, which is unusual for a simple left merge unless the right DataFrame (`df_sale`) has duplicate keys.
-        * **Hypothesis:** This implies `df_sale` likely contains duplicate `sku` values (or `sku`s that are not unique identifiers in `df_sale` by themselves, perhaps needing `product_size` or `product_color` to be unique).
-        * **Implication:** This will be a critical data quality issue to investigate and address before final analysis, as it can lead to inflated counts.
-    * **Example:** `df_final_sales = pd.merge(df_combined_sales, df_sale, on='sku', how='left')`
+## 3. Strategic Missing Value Handling: No One-Size-Fits-All
+
+### Challenge: Diverse Missing Value Scenarios & Impact
+- **Observation:** We encountered different types of missing data:
+    - Critical identifiers (`sku`, `order_date`) where missing data made the record unusable.
+    - Numerical values (`amount`, `unit_price`, `current_stock`) where `NaN`s could break calculations.
+    - Categorical/descriptive values (`product_category`, `courier_status`, `promotion_ids`) where `NaN` might just mean "not specified."
+    - Boolean values (`is_b2b`) which could have `NaN`.
+- **Lesson Learned:** A "one-size-fits-all" approach to missing value imputation is inefficient and can lead to data distortion. Understanding the context of each missing value is paramount.
+- **Best Practice Followed:**
+    - **Context-Driven Imputation Strategy:** Applied different imputation methods based on column data type and criticality:
+        - **Dropping Rows:** For high-criticality missing values (`sku`, `order_date`) where the absence of data renders the record fundamentally unusable for core analysis.
+        - **Zero Imputation:** For numerical columns where a missing value logically implies zero (`amount`, `unit_price`, `current_stock`).
+        - **'Unknown'/'N/A' Imputation:** For categorical/descriptive columns where data absence doesn't invalidate the record but needs to be explicitly marked (`product_category`, `courier_status`, and merged-in `order_id`, `ship_city`, etc.).
+        - **Logical Boolean Imputation:** Explicitly converted `is_b2b` `NaN`s to `False`, assuming non-B2B if unspecified.
+- **Key Decision:**
+    - **Balanced Data Retention vs. Integrity:** A conscious decision was made to drop rows only for the most critical missing values (`sku`, `order_date`) to preserve the majority of the data. For other columns, imputation was chosen to maximize the usable dataset size for diverse analytical questions.
+
+### Challenge: `FutureWarning: A value is trying to be set on a copy...`
+- **Observation:** Repeated warnings about `inplace=True` when modifying DataFrames, indicating potential issues in future Pandas versions.
+- **Lesson Learned:** Relying on deprecated functionalities can lead to breaking code in future library updates. It's important to keep code future-proof.
+- **Best Practice Followed:**
+    - **Avoiding `inplace=True`:** Acknowledged the warning and made a mental note (for future code refactoring, or immediately if project constraints allow) to avoid `inplace=True` by reassigning columns (e.g., `df['col'] = df['col'].fillna('Unknown')`) for safer and more explicit operations.
+
+---
+
+## Conclusion: Clean Data is the Foundation
+The entire data cleaning pipeline, from initial exploration to strategic missing value handling and intelligent merging, was instrumental. By meticulously following these best practices and making informed decisions, we transformed raw, disparate datasets into a robust, clean `df_final_sales` DataFrame, now perfectly poised for meaningful insights and advanced analytics.
