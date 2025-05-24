@@ -106,3 +106,31 @@ That was an efficient and successful round of transformations! You've demonstrat
 --- -->
 
 ## Phase 3: Data Integration - Combining Sales Data
+### Goal:
+To combine disparate sales data sources (`df_amazon`, `df_international`) into a single, unified transactional dataset (`df_combined_sales`) and then enrich it with product master data (`df_sale`) to create a comprehensive `df_final_sales` DataFrame ready for analysis.
+
+### Key Learnings & Methods Used:
+
+* **Combining DataFrames Vertically (`pd.concat()`):**
+    * **Purpose:** Used to stack DataFrames on top of each other (adding rows).
+    * **Arguments:**
+        * `[df1, df2, ...]`: List of DataFrames to concatenate.
+        * `ignore_index=True`: Crucial for creating a new, clean, continuous index for the combined DataFrame, preventing overlapping indices from original DataFrames.
+    * **Behavior:** Handles non-matching columns by creating a union of all columns and filling missing values with `NaN` in the respective rows. This is why `df_combined_sales` had more columns than its individual source DataFrames.
+    * **Example:** `df_combined_sales = pd.concat([df_amazon, df_international], ignore_index=True)`
+
+* **Enriching Data via Merging (`pd.merge()` / Joining):**
+    * **Purpose:** Used to combine DataFrames horizontally (adding columns) based on common values in a shared column (the "key"). Essential for bringing together transactional data with master data (like product details).
+    * **Common Key Identification:** Identified `sku` as the common identifier between sales data and product data.
+    * **`how='left'` Merge Strategy:**
+        * **Concept:** Keeps all rows from the "left" DataFrame (`df_combined_sales`) and brings in matching rows/columns from the "right" DataFrame (`df_sale`).
+        * **Outcome:** If a `sku` in `df_combined_sales` has no match in `df_sale`, the newly added columns from `df_sale` will be `NaN`. This ensures no sales transactions are lost.
+    * **Automatic Suffixes (`_x`, `_y`):**
+        * **Discovery:** Observed that `pd.merge()` automatically adds `_x` to columns from the left DataFrame and `_y` to columns from the right DataFrame when there are duplicate column names (e.g., `product_category_x`, `product_category_y`).
+        * **Reason:** This avoids name collisions and indicates where the column originated.
+        * **Next Step (Planned):** We will address these suffixes by dropping the less authoritative `_x` columns and renaming `_y` columns for clarity.
+    * **Unexpected Row Increase (Important Discovery!):**
+        * **Observation:** Noted a significant increase in row count (from ~166k to ~369k) after merging, which is unusual for a simple left merge unless the right DataFrame (`df_sale`) has duplicate keys.
+        * **Hypothesis:** This implies `df_sale` likely contains duplicate `sku` values (or `sku`s that are not unique identifiers in `df_sale` by themselves, perhaps needing `product_size` or `product_color` to be unique).
+        * **Implication:** This will be a critical data quality issue to investigate and address before final analysis, as it can lead to inflated counts.
+    * **Example:** `df_final_sales = pd.merge(df_combined_sales, df_sale, on='sku', how='left')`
