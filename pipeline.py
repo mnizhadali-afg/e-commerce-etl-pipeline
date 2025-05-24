@@ -69,62 +69,80 @@ sale_report_path = 'Sale Report.csv'
 #     print(f"An error occurred while reading '{amazon_report_path}': {e}")
 
 
-print("\n--- Exploring International Sale Report ---")
-try:
-    df_international = pd.read_csv(international_report_path)
+# print("\n--- Exploring International Sale Report ---")
+# try:
+#     df_international = pd.read_csv(international_report_path)
 
-    # Drop unnecessary columns if they exist
-    df_international.drop(columns=['index'], inplace=True, errors='ignore')
+#     # Drop unnecessary columns if they exist
+#     df_international.drop(columns=['index'], inplace=True, errors='ignore')
 
 
-    # Rename columns for consistency
-    df_international.rename(columns={
-        "DATE": "order_date",
-        "Months": "order_month",
-        "CUSTOMER": "customer_name",
-        "Style": "product_style",
-        "SKU": "sku",
-        "Size": "product_size",
-        "PCS": "quantity",
-        "RATE": "unit_price",
-        "GROSS AMT": "total_amount",
-    }, inplace=True, errors='ignore')
+#     # Rename columns for consistency
+#     df_international.rename(columns={
+#         "DATE": "order_date",
+#         "Months": "order_month",
+#         "CUSTOMER": "customer_name",
+#         "Style": "product_style",
+#         "SKU": "sku",
+#         "Size": "product_size",
+#         "PCS": "quantity",
+#         "RATE": "unit_price",
+#         "GROSS AMT": "total_amount",
+#     }, inplace=True, errors='ignore')
 
-    # Convert data types for df_international
-    df_international['order_date'] = pd.to_datetime(df_international['order_date'], format='%m-%d-%y', errors='coerce')
-    df_international['quantity'] = pd.to_numeric(df_international['quantity'], errors='coerce').fillna(0).astype(np.int64)
-    df_international['unit_price'] = pd.to_numeric(df_international['unit_price'], errors='coerce')
-    df_international['total_amount'] = pd.to_numeric(df_international['total_amount'], errors='coerce')
+#     # Convert data types for df_international
+#     df_international['order_date'] = pd.to_datetime(df_international['order_date'], format='%m-%d-%y', errors='coerce')
+#     df_international['quantity'] = pd.to_numeric(df_international['quantity'], errors='coerce').fillna(0).astype(np.int64)
+#     df_international['unit_price'] = pd.to_numeric(df_international['unit_price'], errors='coerce')
+#     df_international['total_amount'] = pd.to_numeric(df_international['total_amount'], errors='coerce')
 
-    print("\nFirst 5 rows of International Sale Report:")
-    print(df_international.head())
+#     print("\nFirst 5 rows of International Sale Report:")
+#     print(df_international.head())
 
-    print("\nInfo of International Sale Report:")
-    df_international.info()
+#     print("\nInfo of International Sale Report:")
+#     df_international.info()
  
-    print("\nMissing values in International Sale Report:")
-    print(df_international.isnull().sum())
+#     print("\nMissing values in International Sale Report:")
+#     print(df_international.isnull().sum())
+    
+#     print("-" * 50)
+
+# except FileNotFoundError:
+#     print(f"Error: '{international_report_path}' not found. Please ensure the file is in the correct directory.")
+# except Exception as e:
+#     print(f"An error occurred while reading '{international_report_path}': {e}")
+
+
+print("\n--- Exploring Sale Report ---")
+try:
+    df_sale = pd.read_csv(sale_report_path)
+    
+    df_sale.drop(columns=['index'], inplace=True, errors='ignore')
+    
+    df_sale.rename(columns={
+        "SKU Code": "sku",
+        "Design No.": "design_no",
+        "Stock": "current_stock",
+        "Category": "product_category",
+        "Size": "product_size",
+        "Color": "product_color",
+    }, inplace=True, errors='ignore')
+    
+    # Conver current_stock to Int64
+    df_sale['current_stock'] = pd.to_numeric(df_sale['current_stock'], errors='coerce').fillna(0).astype(np.int64)    
+    
+    print("\nFirst 5 rows of Sale Report:")
+    print(df_sale.head())
+    
+    print("\nInfo of Sale Report:")
+    df_sale.info()
+    
+    print("\nMissing values in Sale Report:")
+    print(df_sale.isnull().sum())
     
     print("-" * 50)
 
 except FileNotFoundError:
-    print(f"Error: '{international_report_path}' not found. Please ensure the file is in the correct directory.")
+    print(f"Error: '{sale_report_path}' not found. Please ensure the file is in the correct directory.")
 except Exception as e:
-    print(f"An error occurred while reading '{international_report_path}': {e}")
-
-
-# print("\n--- Exploring Sale Report ---")
-# try:
-#     df_sale = pd.read_csv(sale_report_path)
-#     print("\nFirst 5 rows of Sale Report:")
-#     print(df_sale.head())
-#     print("\nInfo of Sale Report:")
-#     df_sale.info()
-#     print("\nMissing values in Sale Report:")
-#     print(df_sale.isnull().sum())
-#     print("-" * 50)
-
-# except FileNotFoundError:
-#     print(f"Error: '{sale_report_path}' not found. Please ensure the file is in the correct directory.")
-# except Exception as e:
-#     print(f"An error occurred while reading '{sale_report_path}': {e}")
+    print(f"An error occurred while reading '{sale_report_path}': {e}")

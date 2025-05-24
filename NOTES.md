@@ -1,3 +1,54 @@
+# ETL Pipeline Project - Learning Notes
+
+## Phase 1: Data Ingestion & Initial Exploration
+
+### Goal:
+To load raw sales data from various sources (Amazon, International, Product Inventory) into pandas DataFrames and perform an initial inspection to understand their structure, data types, and identify immediate quality issues (e.g., missing values, incorrect data types).
+
+### Key Learnings & Methods Used:
+
+* **Project Setup:**
+    * **Virtual Environments (`venv`):** Learned to create and activate isolated Python environments to manage project dependencies. This prevents conflicts between different projects' library versions. (e.g., `python -m venv venv`, `source venv/bin/activate`)
+    * **Git & GitHub:** Understood the importance of version control for tracking code changes, collaboration, and backup. Practiced basic Git commands (`git init`, `git add .`, `git commit`, `.gitignore`). `.gitignore` is crucial for excluding large or temporary files (like `.csv` datasets, `venv/`, `__pycache__/`) from the repository.
+
+* **Data Loading & Initial Inspection (Pandas):**
+    * Used `pd.read_csv()` to load data into DataFrames.
+    * **`df.head()`:** Quick visual check of the first few rows.
+    * **`df.info()`:** Essential for understanding DataFrame structure:
+        * Column names
+        * Non-null counts (reveals missing values)
+        * Data types (`Dtype`)
+    * **`df.isnull().sum()`:** Precise count of missing values per column.
+
+## Phase 2: Data Transformation - Cleaning Individual DataFrames
+
+### Goal:
+To clean and standardize each raw DataFrame (`df_amazon`, `df_international`, `df_sale`) by addressing structural issues (column names, irrelevant columns) and correcting data types to prepare them for integration and analysis.
+
+### Key Learnings & Methods Used:
+
+* **Column Management:**
+    * **`df.drop()`:** Used to remove unnecessary columns (e.g., `index`, `Unnamed: 22`). Key understanding: `inplace=True` modifies the DataFrame directly, or one must reassign the result (`df = df.drop(...)`). `errors='ignore'` prevents errors if a column doesn't exist.
+    * **`df.rename()`:** Used to standardize column names to a consistent `snake_case` format (e.g., `Order ID` to `order_id`). This improves readability and maintainability.
+
+* **Data Type Correction (`dtype` Conversion):**
+    * **Dates (`object` to `datetime`):**
+        * Used `pd.to_datetime(column, format='...', errors='coerce')`.
+        * `format`: Explicitly defining the date format (e.g., `'%m-%d-%y'`) makes parsing faster and more robust, avoiding `UserWarning`s.
+        * `errors='coerce'`: Converts unparseable date strings into `NaT` (Not a Time), which is pandas' missing value for datetime, instead of raising an error.
+    * **Numerical Data (`object` to `int` or `float`):**
+        * **`pd.to_numeric(column, errors='coerce')`:** Converts strings to numbers. `errors='coerce'` turns non-numeric strings into `NaN` (Not a Number).
+        * **`float64` to `Int64` (Nullable Integer):**
+            * Encountered and debugged "cannot safely cast non-equivalent float64 to int64" error. This occurs when attempting to convert floats with decimal components (e.g., `1.5`) directly to integers, or when `NaN` values are present if using `np.int64`.
+            * **Solution (My Discovery!):** Used `.fillna(0).astype(np.int64)` for `quantity` and `current_stock`.
+                * `fillna(0)`: Replaces `NaN`s with `0`, making the column entirely numeric.
+                * `astype(np.int64)`: Safely converts the column to a non-nullable integer type, as all values are now whole numbers or 0.
+            * **Alternative (`Int64`):** Using `.astype('Int64')` (capital 'I') directly after `pd.to_numeric(..., errors='coerce')` allows the column to retain `NaN` values while still being an integer type where possible. My chosen `fillna(0)` approach is a specific imputation strategy.
+    * **Identifiers (`float64` to `object`):**
+        * Converted `ship_postal_code` from `float64` to `object` (string) using `.astype(str)`. This preserves potential leading zeros and treats postal codes as identifiers, not numbers for calculation.
+
+---
+<!-- 
 ### Learning Journey So Far: A Summary
 
 1.  **Setting up a Python Environment (Virtual Environments):**
@@ -40,15 +91,18 @@
 
 ---
 
-### Role as the Data Engineer (Coach's Corner)
+### **Coach's Corner: Reflection and Next Steps**
 
-**This is fantastic! You're already naturally acting like a data engineer.** The process of debugging, asking questions, and seeking clarification when something isn't quite right, and then actively looking for solutions (like your `fillna(0)` for quantity), is exactly what data engineering is all about.
+That was an efficient and successful round of transformations! You've demonstrated a solid understanding of how to manipulate DataFrames.
 
-**Your Action Item after every major step:**
+**Big Lessons Learned from this phase:**
 
-* **Create a short note (or a comment block in your `pipeline.py` or a separate `NOTES.md` file in your GitHub repo) summarizing:**
-    * **What was the goal of this step?** (e.g., "Clean Amazon Sale Report - standardize columns and convert types").
-    * **What specific pandas functions/methods did I use?** (e.g., `df.drop()`, `df.rename()`, `pd.to_datetime()`, `pd.to_numeric()`, `.fillna()`, `.astype()`).
-    * **What challenges did I encounter and how did I solve them?** (e.g., "Misspelled column name in rename, fixed by checking original `df.info()` output." or "Quantity conversion error, solved by filling NaNs with 0 before converting to int64.").
-    * **What was the result of this step?** (e.g., "Amazon DataFrame now has clean column names, dates are `datetime` type, postal codes are `object`.").
----
+* **Iterative Cleaning:** Data cleaning is rarely a one-shot process. It often involves applying a step, inspecting the results, debugging (like the `DtypeWarning` or the `int64` casting error), and then refining your code.
+* **Pandas' Power:** You've now wielded powerful pandas functions like `read_csv`, `head`, `info`, `isnull().sum`, `drop`, `rename`, `to_datetime`, `to_numeric`, `fillna`, and `astype`. These are fundamental tools for any data professional.
+* **Data Type Importance:** Understanding and correctly setting data types is paramount. Incorrect types lead to errors, inefficient operations, and inaccurate analysis.
+* **Handling Missing Values (Initial):** You've seen how `errors='coerce'` helps identify unparseable values and how `.fillna().astype()` can be a robust strategy for converting to integers when missing data might otherwise cause issues.
+* **Consistent Naming:** The value of `snake_case` column names across all DataFrames. This is a seemingly small detail that pays huge dividends in code readability and when combining datasets.
+
+--- -->
+
+## Phase 3: Data Integration - Combining Sales Data
