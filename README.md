@@ -1,72 +1,91 @@
-# E-commerce Sales Data Analysis - Lessons Learned, Key Decisions & Best Practices (Data Cleaning Phase)
+# ETL Pipeline Project Notes
 
-This document highlights key lessons learned, challenges overcome, important decisions made, and best practices followed during the data loading and cleaning of the e-commerce sales datasets.
+## Project Overview
+**Description:** Development of a Python-based ETL pipeline for extracting sales data from various sources, transforming it for analysis, and loading it into a PostgreSQL Data Warehouse.
+**Technologies:** Python (Pandas, SQLAlchemy), PostgreSQL, SQL.
 
----
+## I. Data Source & Preparation (ET - Extract & Transform)
 
-## 1. Initial Data Discovery: Expect the Unexpected & Informing Decisions
+### 1. Data Ingestion & Initial Cleaning
+* **Sources:** Amazon Sale Report (`Amazon Sale Report.csv`), International Sale Report (`International sale Report.csv`), Product Master (`Sale Report.csv`).
+* **Initial Steps:**
+    * Loaded data using `pandas.read_csv`.
+    * Applied a `clean_dataframe` helper function to:
+        * Strip whitespace from column names.
+        * Drop irrelevant columns (`Unnamed: 22`, `index`).
+        * Rename columns for consistency (e.g., "Order ID" to "order_id").
+        * Convert data types (e.g., `order_date` to datetime, `ship_postal_code` to string, numerical columns to appropriate types).
+    * **Crucial for Merge:** Ensured `df_sale` (Product Master) had **unique SKUs** by dropping duplicates based on the `sku` column (`df_sale.drop_duplicates(subset='sku', keep='first', inplace=True)`). This was vital for a successful merge.
 
-### Challenge: Inconsistent Data Formats & Quality
-- **Observation:** We dealt with three distinct datasets (`amazon_sale_report.csv`, `International_sale_report.csv`, `SaleReport.csv`), each with its own structure, column names, and data types. For instance, `order_date` was an object in both sales reports, and some columns in the Amazon report had mixed types (`DtypeWarning`).
-- **Lesson Learned:** Always start with a thorough data profiling. Ignoring initial warnings or data type inconsistencies can lead to errors and unreliable analyses downstream.
-- **Best Practice Followed:**
-    - **Thorough Initial Data Profiling:** Used `.info()`, `.head()`, and `.isnull().sum()` on *each* raw dataset to understand structure, data types, and missing values from the outset. This systematic approach helped identify issues like incorrect `order_date` types and mixed-type columns early on.
-- **Key Decision:**
-    - **Standardized Date Format:** Decided to convert all `order_date` columns to `datetime64[ns]` across all relevant dataframes (`df_amazon`, `df_international`). This ensures consistent temporal analysis.
+### 2. Data Integration
+* Combined Amazon and International sales data using `pd.concat`.
+* Enriched the combined sales data by performing a **`LEFT MERGE`** with the cleaned `df_sale` (Product Master) on the `sku` column.
+* Resolved column name conflicts (e.g., `product_category_x`, `product_category_y`) by dropping redundant columns and renaming the preferred ones.
 
-### Challenge: Duplicate Product SKUs & Data Integrity
-- **Observation:** The `SaleReport.csv` (our product master) contained duplicate `sku` entries, despite `sku` being a presumed unique identifier for products.
-- **Lesson Learned:** Never assume uniqueness for identifier columns, even if logically they should be unique. Always verify data integrity.
-- **Best Practice Followed:**
-    - **Pre-emptive Duplicate Checking:** Systematically used `.duplicated().sum()` on the `sku` column in `df_sale` to identify and quantify duplicates before any merging. This ensures the foundational master data is clean.
-- **Key Decision:**
-    - **Unique Product Master:** Explicitly decided to drop duplicate `sku` entries in `df_sale`, keeping only the first occurrence. This ensures a clean, unique product master list, which is foundational for accurate sales aggregation.
+### 3. Final Data Cleaning & Quality Assurance
+* **Missing Values Handling:**
+    * **Dropped rows** for critical missing identifiers: `sku` and `order_date`.
+    * **Filled with `0`** for numerical columns where missing implied no value (e.g., `amount`, `unit_price`, `total_amount`, `current_stock`).
+    * **Filled with `'Unknown'`** for categorical columns where missing implied unknown category/value (e.g., `product_category`, `product_size`, `customer_name`, `order_id` etc.).
+* **Type Conversions:** Ensured `is_b2b` was a boolean type.
+* **Robustness:** Added checks for `NaN` after operations and handled potential `DtypeWarning` during CSV reads.
 
----
-
-## 2. Merging Complex Datasets: A Stitch in Time Saves Nine
-
-### Challenge: Column Name Discrepancies Across Datasets
-- **Observation:** When merging the Amazon and International sales reports, and then with the product master, many column names were similar but not identical, or entirely different (e.g., `amount` vs `total_amount`, or `product_category` appearing in multiple files).
-- **Lesson Learned:** Ambiguous or inconsistent column names are a major hurdle in data integration. A clear strategy for column harmonization is crucial.
-- **Best Practice Followed:**
-    - **Proactive Column Harmonization:** Before merging, explicitly defined and executed renaming strategies for columns (e.g., `total_amount` to `amount`, `product_category_df_sale` to `product_category`) to create a unified schema. This minimized confusion and errors post-merge.
-- **Key Decision:**
-    - **Standardized Naming Convention for Merged Data:** Renamed columns from `df_international` and `df_sale` to align with the more comprehensive `df_amazon` columns where possible. This creates a more cohesive final dataset suitable for cross-source analysis.
-
-### Challenge: Introducing Missing Values During Merging
-- **Observation:** After concatenating and merging the datasets, new `NaN` values appeared in columns that were originally clean in one dataset but missing in another (e.g., `order_id` in International sales records after merging with Amazon data).
-- **Lesson Learned:** Merging inherently introduces `NaN` values for data not present in all joined tables. This is a natural consequence, not an error.
-- **Best Practice Followed:**
-    - **Phased Cleaning Approach:** Implemented a dedicated post-merge cleaning phase to systematically address newly introduced `NaN` values, rather than trying to handle all missing values in one go.
+### 4. Feature Engineering
+* **Time-Based Features:** Extracted `order_year`, `order_month_num`, `order_day_of_week`, and `order_hour` from the `order_date` column.
+* **Calculated Metrics:** Derived `total_price` as `quantity * unit_price`.
 
 ---
 
-## 3. Strategic Missing Value Handling: No One-Size-Fits-All
+## II. PostgreSQL Data Warehouse Setup & Loading (L - Load)
 
-### Challenge: Diverse Missing Value Scenarios & Impact
-- **Observation:** We encountered different types of missing data:
-    - Critical identifiers (`sku`, `order_date`) where missing data made the record unusable.
-    - Numerical values (`amount`, `unit_price`, `current_stock`) where `NaN`s could break calculations.
-    - Categorical/descriptive values (`product_category`, `courier_status`, `promotion_ids`) where `NaN` might just mean "not specified."
-    - Boolean values (`is_b2b`) which could have `NaN`.
-- **Lesson Learned:** A "one-size-fits-all" approach to missing value imputation is inefficient and can lead to data distortion. Understanding the context of each missing value is paramount.
-- **Best Practice Followed:**
-    - **Context-Driven Imputation Strategy:** Applied different imputation methods based on column data type and criticality:
-        - **Dropping Rows:** For high-criticality missing values (`sku`, `order_date`) where the absence of data renders the record fundamentally unusable for core analysis.
-        - **Zero Imputation:** For numerical columns where a missing value logically implies zero (`amount`, `unit_price`, `current_stock`).
-        - **'Unknown'/'N/A' Imputation:** For categorical/descriptive columns where data absence doesn't invalidate the record but needs to be explicitly marked (`product_category`, `courier_status`, and merged-in `order_id`, `ship_city`, etc.).
-        - **Logical Boolean Imputation:** Explicitly converted `is_b2b` `NaN`s to `False`, assuming non-B2B if unspecified.
-- **Key Decision:**
-    - **Balanced Data Retention vs. Integrity:** A conscious decision was made to drop rows only for the most critical missing values (`sku`, `order_date`) to preserve the majority of the data. For other columns, imputation was chosen to maximize the usable dataset size for diverse analytical questions.
+### 1. PostgreSQL Installation & Environment
+* **PostgreSQL Server:** Installed globally on Ubuntu using `sudo apt install postgresql postgresql-contrib`. This is a system service, not a Python venv package.
+* **Python Libraries:** `psycopg2-binary` and `SQLAlchemy` are installed within the Python virtual environment (`venv`) using `pip install`. These enable Python to connect to PostgreSQL.
+    * Confirmed installation using `pip list` or observing "Requirement already satisfied" messages.
 
-### Challenge: `FutureWarning: A value is trying to be set on a copy...`
-- **Observation:** Repeated warnings about `inplace=True` when modifying DataFrames, indicating potential issues in future Pandas versions.
-- **Lesson Learned:** Relying on deprecated functionalities can lead to breaking code in future library updates. It's important to keep code future-proof.
-- **Best Practice Followed:**
-    - **Avoiding `inplace=True`:** Acknowledged the warning and made a mental note (for future code refactoring, or immediately if project constraints allow) to avoid `inplace=True` by reassigning columns (e.g., `df['col'] = df['col'].fillna('Unknown')`) for safer and more explicit operations.
+### 2. PostgreSQL Server Configuration & User Management
+* **Service Status Check:** Verified PostgreSQL server status with `sudo systemctl status postgresql`.
+* **Peer Authentication Issue (`pg_hba.conf`):**
+    * **Problem:** Default `peer` authentication for local Unix socket connections (`local all all peer`) prevented direct connection as a specific database user (e.g., `etl_user`) if the system user didn't match.
+    * **Solution:** Edited `pg_hba.conf` (typically `/etc/postgresql/<version>/main/pg_hba.conf`) to change `peer` to `md5` or `scram-sha-256` for `local` connections.
+    * **Action:** Changed the line `local all all peer` to `local all all md5` (or `scram-sha-256`).
+    * **Crucial Step:** Restarted PostgreSQL service after modification: `sudo systemctl restart postgresql`.
+* **Database and User Creation:**
+    * Connected as superuser: `sudo -u postgres psql`.
+    * Created database: `CREATE DATABASE ecommerce_dw;`.
+    * Created user: `CREATE USER etl_user WITH PASSWORD 'your_secure_password';`.
+    * Granted privileges: `GRANT ALL PRIVILEGES ON DATABASE ecommerce_dw TO etl_user;`.
+
+### 3. Schema & Table Creation (`sales_fact`)
+* **Permission Denied for Schema Public (during `CREATE TABLE`):**
+    * **Problem:** Even after granting `CREATE` permission on the `public` schema, `etl_user` could not create tables because the `postgres` user still *owned* the `public` schema, leading to implicit restrictions.
+    * **Solution:** Explicitly changed the ownership of the `public` schema to `etl_user`.
+    * **Action:** Connected as `postgres` to the specific database (`sudo -u postgres psql -d ecommerce_dw`) and ran: `ALTER SCHEMA public OWNER TO etl_user;`.
+    * **Other Essential Grants (for robust permissions):**
+        * `GRANT CREATE ON SCHEMA public TO etl_user;`
+        * `GRANT USAGE ON SCHEMA public TO etl_user;`
+        * `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO etl_user;` (for future objects)
+* **Table Definition (SQL):** Defined the `sales_fact` table mirroring the DataFrame columns with appropriate PostgreSQL data types.
+    * `CREATE TABLE IF NOT EXISTS sales_fact (...)`. This was run successfully after ensuring `etl_user` had necessary permissions.
+
+### 4. Python-to-PostgreSQL Data Loading
+* **Connection String Construction:** Used `sqlalchemy.create_engine` to build the database connection URL.
+* **Special Characters in Password:**
+    * **Problem:** Passwords containing special characters (like `@`) can break the URL format, causing "could not translate host name" errors.
+    * **Solution:** URL-encode the password using `urllib.parse.quote_plus`. This function (from Python's standard library) converts special characters into their safe, percent-encoded equivalents.
+    * **Example:** `quote_plus("your!P@ssword")`
+* **Data Transfer:** Utilized `pandas.DataFrame.to_sql` to efficiently load the `df_final_sales` DataFrame into the `sales_fact` table.
+    * `if_exists='append'` used to add new data to existing table.
+    * `index=False` prevents writing the DataFrame index as a column.
+    * `chunksize=1000` was used for performance optimization on large datasets.
+* **Successful Load:** Confirmed that `146193` rows were successfully loaded into the `sales_fact` table, matching the DataFrame size.
+* **Security (Future Best Practice):** Emphasized using environment variables (`os.getenv`) loaded from a `.env` file (with `python-dotenv`) for database credentials. This keeps sensitive data out of source code and allows for flexible environment management.
 
 ---
 
-## Conclusion: Clean Data is the Foundation
-The entire data cleaning pipeline, from initial exploration to strategic missing value handling and intelligent merging, was instrumental. By meticulously following these best practices and making informed decisions, we transformed raw, disparate datasets into a robust, clean `df_final_sales` DataFrame, now perfectly poised for meaningful insights and advanced analytics.
+## III. Next Steps (Future Considerations)
+
+Now that the core ETL is functional and data is loaded:
+
+1.  **Automate the Pipeline Execution (Scheduling):** Set up routine runs (e.g., daily) using tools like `cron` on Ubuntu for basic automation, or more advanced orchestrators like Apache Airflow for complex workflows.
+2.  **Define and Analyze E-commerce Metrics:** Start extracting meaningful insights from the loaded data using SQL queries, creating PostgreSQL views, or connecting Business Intelligence (BI) tools.

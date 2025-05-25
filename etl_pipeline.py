@@ -1,9 +1,12 @@
 import pandas as pd
 import numpy as np
 import logging
-import sys # Import sys for logging to console
+import sys
+from sqlalchemy import create_engine
+import os # For environment variables
+from urllib.parse import quote_plus
+from dotenv import load_dotenv
 
-# --- Configuration ---
 # Set up logging
 # Configure logging to output to console (stdout) and a file (optional)
 # You can change the level to logging.DEBUG to see more detailed messages during development
@@ -15,6 +18,7 @@ logging.basicConfig(
         # logging.FileHandler('pipeline_log.log') # Uncomment to also log to a file
     ]
 )
+
 
 # File paths
 AMAZON_REPORT_PATH = 'Amazon Sale Report.csv'
@@ -56,6 +60,19 @@ SALE_RENAME = {
 SALE_TYPES = {
     'current_stock': lambda x: pd.to_numeric(x, errors='coerce').fillna(0).astype(np.int64)
 }
+
+
+load_dotenv() # Load variables from .env file
+
+DB_CONFIG = {
+    "host": os.getenv("DB_HOST"),        # No default needed if .env is mandatory
+    "port": os.getenv("DB_PORT"),
+    "database": os.getenv("DB_NAME"),
+    "user": os.getenv("DB_USER"),
+    "password": quote_plus(os.getenv("DB_PASSWORD")) # Still need to encode!
+}
+TABLE_NAME = "sales_fact"
+
 
 # --- Helper Function for Data Cleaning ---
 def clean_dataframe(df, drop_cols=None, rename_dict=None, dtype_conversions=None):
@@ -313,3 +330,63 @@ if __name__ == "__main__":
     # logging.info("Next step: Loading df_final_sales into PostgreSQL Data Warehouse.")
     # from your_db_module import load_to_postgresql
     # load_to_postgresql(df_final_sales, 'your_table_name')
+    
+#      integrate_sales_data, clean_and_qa_final_sales_data, engineer_features) ...
+
+def load_data_to_postgresql(df, table_name, db_config):
+    """
+    Loads a Pandas DataFrame into a PostgreSQL table.
+    """
+    logging.info(f"--- Starting data load into PostgreSQL table: '{table_name}' ---")
+
+    db_url = (
+        f"postgresql://{db_config['user']}:{db_config['password']}@"
+        f"{db_config['host']}:{db_config['port']}/{db_config['database']}"
+    )
+
+    try:
+        engine = create_engine(db_url)
+        logging.info("PostgreSQL engine created successfully.")
+
+        # Using 'append' to add new rows. 'replace' would drop and recreate the table.
+        df.to_sql(table_name, engine, if_exists='append', index=False, chunksize=1000)
+
+        logging.info(f"Successfully loaded {len(df)} rows into '{table_name}' table.")
+
+    except Exception as e:
+        logging.error(f"Error loading data to PostgreSQL: {e}")
+        raise # Re-raise the exception to stop the pipeline if load fails
+    finally:
+        if 'engine' in locals():
+            engine.dispose() # Ensure the connection is closed
+            logging.info("PostgreSQL connection closed.")
+
+# --- Main Pipeline Execution (MODIFIED) ---
+if __name__ == "__main__":
+    logging.info("--- Starting E-commerce Data Pipeline ---")
+
+    try:
+        # Step 1: Load and initial clean of individual reports
+        df_amazon_clean, df_international_clean, df_sale_clean = load_and_clean_source_data()
+
+        # Step 2: Integrate sales data
+        df_final_sales = integrate_sales_data(df_amazon_clean, df_international_clean, df_sale_clean)
+
+        # Step 3: Perform final cleaning and quality assurance
+        df_final_sales = clean_and_qa_final_sales_data(df_final_sales)
+
+        # Step 4: Engineer new features
+        df_final_sales = engineer_features(df_final_sales)
+
+        logging.info("--- E-commerce Data Pipeline Completed Successfully (Data Transformation Phase) ---")
+        logging.info(f"Final DataFrame shape: {df_final_sales.shape}")
+        logging.debug(f"Final DataFrame head:\n{df_final_sales.head().to_string()}")
+
+        # Step 5: Load data into PostgreSQL Data Warehouse
+        load_data_to_postgresql(df_final_sales, TABLE_NAME, DB_CONFIG)
+
+        logging.info("--- ALL ETL Pipeline steps completed successfully! Data loaded to PostgreSQL. ---")
+
+    except Exception as pipeline_error:
+        logging.critical(f"ETL Pipeline encountered a critical error: {pipeline_error}", exc_info=True)
+        sys.exit(1) # Exit with a non-zero code to indicate failure
