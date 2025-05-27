@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import pandas as pd
 import numpy as np
 import logging
@@ -20,10 +23,13 @@ logging.basicConfig(
 )
 
 
-# File paths
-AMAZON_REPORT_PATH = 'Amazon Sale Report.csv'
-INTERNATIONAL_REPORT_PATH = 'International sale Report.csv'
-SALE_REPORT_PATH = 'Sale Report.csv'
+# Get the directory of the current script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# File paths (UPDATED TO USE ABSOLUTE PATHS)
+AMAZON_REPORT_PATH = os.path.join(SCRIPT_DIR, 'Amazon Sale Report.csv')
+INTERNATIONAL_REPORT_PATH = os.path.join(SCRIPT_DIR, 'International sale Report.csv')
+SALE_REPORT_PATH = os.path.join(SCRIPT_DIR, 'Sale Report.csv')
 
 # Renaming and type conversion dictionaries
 AMAZON_RENAME = {
