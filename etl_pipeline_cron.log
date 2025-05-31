@@ -531,3 +531,445 @@ memory usage: 35.8+ MB
 2025-05-27 11:38:20,375 - INFO - Successfully loaded 146193 rows into 'sales_fact' table.
 2025-05-27 11:38:20,376 - INFO - PostgreSQL connection closed.
 2025-05-27 11:38:20,376 - INFO - --- ALL ETL Pipeline steps completed successfully! Data loaded to PostgreSQL. ---
+DEBUG: Raw DB_USER from .env: etl_user
+DEBUG: Raw DB_PASSWORD from .env: ma12!@MA
+DEBUG: Password after quote_plus: ma12%21%40MA
+2025-05-31 11:38:02,654 - INFO - --- Starting E-commerce Data Pipeline ---
+2025-05-31 11:38:02,654 - INFO - --- Starting Data Loading and Initial Cleaning ---
+2025-05-31 11:38:02,656 - INFO - Loading and cleaning '/home/mnizhadali/Desktop/e-commerce_project/Amazon Sale Report.csv'...
+/home/mnizhadali/Desktop/e-commerce_project/etl_pipeline.py:124: DtypeWarning: Columns (23) have mixed types. Specify dtype option on import or set low_memory=False.
+  df_amazon = pd.read_csv(AMAZON_REPORT_PATH)
+/home/mnizhadali/Desktop/e-commerce_project/etl_pipeline.py:46: UserWarning: Could not infer format, so each element will be parsed individually, falling back to `dateutil`. To ensure parsing is consistent and as-expected, please specify a format.
+  'order_date': lambda x: pd.to_datetime(x, errors='coerce'),
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 128975 entries, 0 to 128974
+Data columns (total 22 columns):
+ #   Column              Non-Null Count   Dtype         
+---  ------              --------------   -----         
+ 0   order_id            128975 non-null  object        
+ 1   order_date          128975 non-null  datetime64[ns]
+ 2   order_status        128975 non-null  object        
+ 3   fulfillment_type    128975 non-null  object        
+ 4   sales_channel       128975 non-null  object        
+ 5   ship_service_level  128975 non-null  object        
+ 6   product_style       128975 non-null  object        
+ 7   sku                 128975 non-null  object        
+ 8   product_category    128975 non-null  object        
+ 9   product_size        128975 non-null  object        
+ 10  product_asin        128975 non-null  object        
+ 11  courier_status      122103 non-null  object        
+ 12  quantity            128975 non-null  int64         
+ 13  currency            121180 non-null  object        
+ 14  amount              121180 non-null  float64       
+ 15  ship_city           128942 non-null  object        
+ 16  ship_state          128942 non-null  object        
+ 17  ship_postal_code    128975 non-null  object        
+ 18  ship_country        128942 non-null  object        
+ 19  promotion_ids       79822 non-null   object        
+ 20  is_b2b              128975 non-null  bool          
+ 21  fulfillment_by      39277 non-null   object        
+dtypes: bool(1), datetime64[ns](1), float64(1), int64(1), object(18)
+memory usage: 20.8+ MB
+2025-05-31 11:38:03,560 - INFO - Successfully processed '/home/mnizhadali/Desktop/e-commerce_project/Amazon Sale Report.csv'. Shape: (128975, 22)
+2025-05-31 11:38:03,560 - INFO - Loading and cleaning '/home/mnizhadali/Desktop/e-commerce_project/International sale Report.csv'...
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 37432 entries, 0 to 37431
+Data columns (total 9 columns):
+ #   Column         Non-Null Count  Dtype         
+---  ------         --------------  -----         
+ 0   order_date     18635 non-null  datetime64[ns]
+ 1   order_month    37407 non-null  object        
+ 2   customer_name  36392 non-null  object        
+ 3   product_style  36392 non-null  object        
+ 4   sku            34958 non-null  object        
+ 5   product_size   36392 non-null  object        
+ 6   quantity       37432 non-null  int64         
+ 7   unit_price     36391 non-null  float64       
+ 8   total_amount   36391 non-null  float64       
+dtypes: datetime64[ns](1), float64(2), int64(1), object(5)
+memory usage: 2.6+ MB
+2025-05-31 11:38:03,651 - INFO - Successfully processed '/home/mnizhadali/Desktop/e-commerce_project/International sale Report.csv'. Shape: (37432, 9)
+2025-05-31 11:38:03,651 - INFO - Loading and cleaning '/home/mnizhadali/Desktop/e-commerce_project/Sale Report.csv'...
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 9271 entries, 0 to 9270
+Data columns (total 6 columns):
+ #   Column            Non-Null Count  Dtype 
+---  ------            --------------  ----- 
+ 0   sku               9188 non-null   object
+ 1   design_no         9235 non-null   object
+ 2   current_stock     9271 non-null   int64 
+ 3   product_category  9226 non-null   object
+ 4   product_size      9235 non-null   object
+ 5   product_color     9226 non-null   object
+dtypes: int64(1), object(5)
+memory usage: 434.7+ KB
+2025-05-31 11:38:03,667 - INFO - Sale Report - Initial rows: 9271, Unique SKUs: 9170
+2025-05-31 11:38:03,668 - INFO - Dropped 100 duplicate SKUs from Sale Report. New rows: 9171
+2025-05-31 11:38:03,671 - INFO - Successfully processed '/home/mnizhadali/Desktop/e-commerce_project/Sale Report.csv'. Shape: (9171, 6)
+2025-05-31 11:38:03,671 - INFO - --- Starting Data Integration ---
+2025-05-31 11:38:03,691 - INFO - Combined Amazon and International sales. Combined shape: (166407, 26)
+2025-05-31 11:38:03,805 - INFO - Merged combined sales with Sale Report (product master) on 'sku'. Final shape: (166407, 31)
+2025-05-31 11:38:03,871 - INFO - Resolved conflicting column names ('product_category', 'product_size') post-merge.
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 166407 entries, 0 to 166406
+Data columns (total 29 columns):
+ #   Column              Non-Null Count   Dtype         
+---  ------              --------------   -----         
+ 0   order_id            128975 non-null  object        
+ 1   order_date          147610 non-null  datetime64[ns]
+ 2   order_status        128975 non-null  object        
+ 3   fulfillment_type    128975 non-null  object        
+ 4   sales_channel       128975 non-null  object        
+ 5   ship_service_level  128975 non-null  object        
+ 6   product_style       165367 non-null  object        
+ 7   sku                 163933 non-null  object        
+ 8   product_asin        128975 non-null  object        
+ 9   courier_status      122103 non-null  object        
+ 10  quantity            166407 non-null  int64         
+ 11  currency            121180 non-null  object        
+ 12  amount              121180 non-null  float64       
+ 13  ship_city           128942 non-null  object        
+ 14  ship_state          128942 non-null  object        
+ 15  ship_postal_code    128975 non-null  object        
+ 16  ship_country        128942 non-null  object        
+ 17  promotion_ids       79822 non-null   object        
+ 18  is_b2b              128975 non-null  object        
+ 19  fulfillment_by      39277 non-null   object        
+ 20  order_month         37407 non-null   object        
+ 21  customer_name       36392 non-null   object        
+ 22  unit_price          36391 non-null   float64       
+ 23  total_amount        36391 non-null   float64       
+ 24  design_no           157399 non-null  object        
+ 25  current_stock       157399 non-null  float64       
+ 26  product_category    157399 non-null  object        
+ 27  product_size        157399 non-null  object        
+ 28  product_color       157399 non-null  object        
+dtypes: datetime64[ns](1), float64(4), int64(1), object(23)
+memory usage: 36.8+ MB
+2025-05-31 11:38:04,120 - INFO - --- Starting Final Cleaning and Data Quality Assurance ---
+2025-05-31 11:38:04,182 - INFO - Dropped 2474 rows with missing 'sku'.
+2025-05-31 11:38:04,213 - INFO - Converted 'is_b2b' to boolean. Dtype: bool
+/home/mnizhadali/Desktop/e-commerce_project/etl_pipeline.py:242: FutureWarning: A value is trying to be set on a copy of a DataFrame or Series through chained assignment using an inplace method.
+The behavior will change in pandas 3.0. This inplace method will never work because the intermediate object on which we are setting values always behaves as a copy.
+
+For example, when doing 'df[col].method(value, inplace=True)', try using 'df.method({col: value}, inplace=True)' or df[col] = df[col].method(value) instead, to perform the operation inplace on the original object.
+
+
+  df_final_sales[col].fillna(0, inplace=True)
+2025-05-31 11:38:04,214 - INFO - Filled 42753 missing values in 'amount' with 0.
+2025-05-31 11:38:04,215 - INFO - Filled 128976 missing values in 'unit_price' with 0.
+2025-05-31 11:38:04,216 - INFO - Filled 128976 missing values in 'total_amount' with 0.
+2025-05-31 11:38:04,218 - INFO - Filled 9008 missing values in 'current_stock' with 0.
+2025-05-31 11:38:04,219 - INFO - Handled missing numerical values and ensured correct dtypes.
+2025-05-31 11:38:04,266 - INFO - Dropped 17740 rows with missing 'order_date'.
+2025-05-31 11:38:04,275 - INFO - Ensured 'order_date' is datetime type.
+/home/mnizhadali/Desktop/e-commerce_project/etl_pipeline.py:276: FutureWarning: A value is trying to be set on a copy of a DataFrame or Series through chained assignment using an inplace method.
+The behavior will change in pandas 3.0. This inplace method will never work because the intermediate object on which we are setting values always behaves as a copy.
+
+For example, when doing 'df[col].method(value, inplace=True)', try using 'df.method({col: value}, inplace=True)' or df[col] = df[col].method(value) instead, to perform the operation inplace on the original object.
+
+
+  df_final_sales[col].fillna('Unknown', inplace=True)
+2025-05-31 11:38:04,286 - INFO - Filled 8096 missing values in 'product_category' with 'Unknown'.
+2025-05-31 11:38:04,300 - INFO - Filled 8096 missing values in 'product_size' with 'Unknown'.
+2025-05-31 11:38:04,311 - INFO - Filled 8096 missing values in 'product_color' with 'Unknown'.
+2025-05-31 11:38:04,323 - INFO - Filled 8096 missing values in 'design_no' with 'Unknown'.
+2025-05-31 11:38:04,334 - INFO - Filled 24090 missing values in 'courier_status' with 'Unknown'.
+2025-05-31 11:38:04,345 - INFO - Filled 25013 missing values in 'currency' with 'Unknown'.
+2025-05-31 11:38:04,355 - INFO - Filled 106916 missing values in 'fulfillment_by' with 'Unknown'.
+2025-05-31 11:38:04,363 - INFO - Filled 128975 missing values in 'order_month' with 'Unknown'.
+2025-05-31 11:38:04,371 - INFO - Filled 128975 missing values in 'customer_name' with 'Unknown'.
+2025-05-31 11:38:04,386 - INFO - Filled 17218 missing values in 'order_id' with 'Unknown'.
+2025-05-31 11:38:04,397 - INFO - Filled 17218 missing values in 'order_status' with 'Unknown'.
+2025-05-31 11:38:04,408 - INFO - Filled 17218 missing values in 'fulfillment_type' with 'Unknown'.
+2025-05-31 11:38:04,419 - INFO - Filled 17218 missing values in 'sales_channel' with 'Unknown'.
+2025-05-31 11:38:04,429 - INFO - Filled 17218 missing values in 'ship_service_level' with 'Unknown'.
+2025-05-31 11:38:04,440 - INFO - Filled 17218 missing values in 'product_asin' with 'Unknown'.
+2025-05-31 11:38:04,451 - INFO - Filled 17251 missing values in 'ship_city' with 'Unknown'.
+2025-05-31 11:38:04,461 - INFO - Filled 17251 missing values in 'ship_state' with 'Unknown'.
+2025-05-31 11:38:04,473 - INFO - Filled 17218 missing values in 'ship_postal_code' with 'Unknown'.
+2025-05-31 11:38:04,483 - INFO - Filled 17251 missing values in 'ship_country' with 'Unknown'.
+2025-05-31 11:38:04,497 - INFO - Filled 66371 missing values in 'promotion_ids' with 'Unknown'.
+2025-05-31 11:38:04,497 - INFO - Filled remaining missing categorical values with 'Unknown'.
+<class 'pandas.core.frame.DataFrame'>
+Index: 146193 entries, 0 to 146209
+Data columns (total 29 columns):
+ #   Column              Non-Null Count   Dtype         
+---  ------              --------------   -----         
+ 0   order_id            146193 non-null  object        
+ 1   order_date          146193 non-null  datetime64[ns]
+ 2   order_status        146193 non-null  object        
+ 3   fulfillment_type    146193 non-null  object        
+ 4   sales_channel       146193 non-null  object        
+ 5   ship_service_level  146193 non-null  object        
+ 6   product_style       146193 non-null  object        
+ 7   sku                 146193 non-null  object        
+ 8   product_asin        146193 non-null  object        
+ 9   courier_status      146193 non-null  object        
+ 10  quantity            146193 non-null  int64         
+ 11  currency            146193 non-null  object        
+ 12  amount              146193 non-null  float64       
+ 13  ship_city           146193 non-null  object        
+ 14  ship_state          146193 non-null  object        
+ 15  ship_postal_code    146193 non-null  object        
+ 16  ship_country        146193 non-null  object        
+ 17  promotion_ids       146193 non-null  object        
+ 18  is_b2b              146193 non-null  bool          
+ 19  fulfillment_by      146193 non-null  object        
+ 20  order_month         146193 non-null  object        
+ 21  customer_name       146193 non-null  object        
+ 22  unit_price          146193 non-null  float64       
+ 23  total_amount        146193 non-null  float64       
+ 24  design_no           146193 non-null  object        
+ 25  current_stock       146193 non-null  int64         
+ 26  product_category    146193 non-null  object        
+ 27  product_size        146193 non-null  object        
+ 28  product_color       146193 non-null  object        
+dtypes: bool(1), datetime64[ns](1), float64(3), int64(2), object(22)
+memory usage: 32.5+ MB
+2025-05-31 11:38:04,727 - INFO - --- Final Cleaning and Data Quality Assurance Complete ---
+2025-05-31 11:38:04,727 - INFO - --- Starting Feature Engineering ---
+2025-05-31 11:38:04,738 - INFO - Calculated 'total_price' (quantity * unit_price).
+2025-05-31 11:38:04,738 - INFO - --- E-commerce Data Pipeline Completed Successfully ---
+2025-05-31 11:38:04,738 - INFO - Final DataFrame shape: (146193, 30)
+2025-05-31 11:38:04,738 - INFO - Final DataFrame columns: ['order_id', 'order_date', 'order_status', 'fulfillment_type', 'sales_channel', 'ship_service_level', 'product_style', 'sku', 'product_asin', 'courier_status', 'quantity', 'currency', 'amount', 'ship_city', 'ship_state', 'ship_postal_code', 'ship_country', 'promotion_ids', 'is_b2b', 'fulfillment_by', 'order_month', 'customer_name', 'unit_price', 'total_amount', 'design_no', 'current_stock', 'product_category', 'product_size', 'product_color', 'total_price']
+<class 'pandas.core.frame.DataFrame'>
+Index: 146193 entries, 0 to 146209
+Data columns (total 30 columns):
+ #   Column              Non-Null Count   Dtype         
+---  ------              --------------   -----         
+ 0   order_id            146193 non-null  object        
+ 1   order_date          146193 non-null  datetime64[ns]
+ 2   order_status        146193 non-null  object        
+ 3   fulfillment_type    146193 non-null  object        
+ 4   sales_channel       146193 non-null  object        
+ 5   ship_service_level  146193 non-null  object        
+ 6   product_style       146193 non-null  object        
+ 7   sku                 146193 non-null  object        
+ 8   product_asin        146193 non-null  object        
+ 9   courier_status      146193 non-null  object        
+ 10  quantity            146193 non-null  int64         
+ 11  currency            146193 non-null  object        
+ 12  amount              146193 non-null  float64       
+ 13  ship_city           146193 non-null  object        
+ 14  ship_state          146193 non-null  object        
+ 15  ship_postal_code    146193 non-null  object        
+ 16  ship_country        146193 non-null  object        
+ 17  promotion_ids       146193 non-null  object        
+ 18  is_b2b              146193 non-null  bool          
+ 19  fulfillment_by      146193 non-null  object        
+ 20  order_month         146193 non-null  object        
+ 21  customer_name       146193 non-null  object        
+ 22  unit_price          146193 non-null  float64       
+ 23  total_amount        146193 non-null  float64       
+ 24  design_no           146193 non-null  object        
+ 25  current_stock       146193 non-null  int64         
+ 26  product_category    146193 non-null  object        
+ 27  product_size        146193 non-null  object        
+ 28  product_color       146193 non-null  object        
+ 29  total_price         146193 non-null  float64       
+dtypes: bool(1), datetime64[ns](1), float64(4), int64(2), object(22)
+memory usage: 33.6+ MB
+2025-05-31 11:38:04,965 - INFO - --- Starting E-commerce Data Pipeline ---
+2025-05-31 11:38:04,965 - INFO - --- Starting Data Loading and Initial Cleaning ---
+2025-05-31 11:38:04,966 - INFO - Loading and cleaning '/home/mnizhadali/Desktop/e-commerce_project/Amazon Sale Report.csv'...
+/home/mnizhadali/Desktop/e-commerce_project/etl_pipeline.py:124: DtypeWarning: Columns (23) have mixed types. Specify dtype option on import or set low_memory=False.
+  df_amazon = pd.read_csv(AMAZON_REPORT_PATH)
+/home/mnizhadali/Desktop/e-commerce_project/etl_pipeline.py:46: UserWarning: Could not infer format, so each element will be parsed individually, falling back to `dateutil`. To ensure parsing is consistent and as-expected, please specify a format.
+  'order_date': lambda x: pd.to_datetime(x, errors='coerce'),
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 128975 entries, 0 to 128974
+Data columns (total 22 columns):
+ #   Column              Non-Null Count   Dtype         
+---  ------              --------------   -----         
+ 0   order_id            128975 non-null  object        
+ 1   order_date          128975 non-null  datetime64[ns]
+ 2   order_status        128975 non-null  object        
+ 3   fulfillment_type    128975 non-null  object        
+ 4   sales_channel       128975 non-null  object        
+ 5   ship_service_level  128975 non-null  object        
+ 6   product_style       128975 non-null  object        
+ 7   sku                 128975 non-null  object        
+ 8   product_category    128975 non-null  object        
+ 9   product_size        128975 non-null  object        
+ 10  product_asin        128975 non-null  object        
+ 11  courier_status      122103 non-null  object        
+ 12  quantity            128975 non-null  int64         
+ 13  currency            121180 non-null  object        
+ 14  amount              121180 non-null  float64       
+ 15  ship_city           128942 non-null  object        
+ 16  ship_state          128942 non-null  object        
+ 17  ship_postal_code    128975 non-null  object        
+ 18  ship_country        128942 non-null  object        
+ 19  promotion_ids       79822 non-null   object        
+ 20  is_b2b              128975 non-null  bool          
+ 21  fulfillment_by      39277 non-null   object        
+dtypes: bool(1), datetime64[ns](1), float64(1), int64(1), object(18)
+memory usage: 20.8+ MB
+2025-05-31 11:38:05,762 - INFO - Successfully processed '/home/mnizhadali/Desktop/e-commerce_project/Amazon Sale Report.csv'. Shape: (128975, 22)
+2025-05-31 11:38:05,762 - INFO - Loading and cleaning '/home/mnizhadali/Desktop/e-commerce_project/International sale Report.csv'...
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 37432 entries, 0 to 37431
+Data columns (total 9 columns):
+ #   Column         Non-Null Count  Dtype         
+---  ------         --------------  -----         
+ 0   order_date     18635 non-null  datetime64[ns]
+ 1   order_month    37407 non-null  object        
+ 2   customer_name  36392 non-null  object        
+ 3   product_style  36392 non-null  object        
+ 4   sku            34958 non-null  object        
+ 5   product_size   36392 non-null  object        
+ 6   quantity       37432 non-null  int64         
+ 7   unit_price     36391 non-null  float64       
+ 8   total_amount   36391 non-null  float64       
+dtypes: datetime64[ns](1), float64(2), int64(1), object(5)
+memory usage: 2.6+ MB
+2025-05-31 11:38:05,851 - INFO - Successfully processed '/home/mnizhadali/Desktop/e-commerce_project/International sale Report.csv'. Shape: (37432, 9)
+2025-05-31 11:38:05,851 - INFO - Loading and cleaning '/home/mnizhadali/Desktop/e-commerce_project/Sale Report.csv'...
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 9271 entries, 0 to 9270
+Data columns (total 6 columns):
+ #   Column            Non-Null Count  Dtype 
+---  ------            --------------  ----- 
+ 0   sku               9188 non-null   object
+ 1   design_no         9235 non-null   object
+ 2   current_stock     9271 non-null   int64 
+ 3   product_category  9226 non-null   object
+ 4   product_size      9235 non-null   object
+ 5   product_color     9226 non-null   object
+dtypes: int64(1), object(5)
+memory usage: 434.7+ KB
+2025-05-31 11:38:05,867 - INFO - Sale Report - Initial rows: 9271, Unique SKUs: 9170
+2025-05-31 11:38:05,868 - INFO - Dropped 100 duplicate SKUs from Sale Report. New rows: 9171
+2025-05-31 11:38:05,871 - INFO - Successfully processed '/home/mnizhadali/Desktop/e-commerce_project/Sale Report.csv'. Shape: (9171, 6)
+2025-05-31 11:38:05,878 - INFO - --- Starting Data Integration ---
+2025-05-31 11:38:05,894 - INFO - Combined Amazon and International sales. Combined shape: (166407, 26)
+2025-05-31 11:38:05,994 - INFO - Merged combined sales with Sale Report (product master) on 'sku'. Final shape: (166407, 31)
+2025-05-31 11:38:06,043 - INFO - Resolved conflicting column names ('product_category', 'product_size') post-merge.
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 166407 entries, 0 to 166406
+Data columns (total 29 columns):
+ #   Column              Non-Null Count   Dtype         
+---  ------              --------------   -----         
+ 0   order_id            128975 non-null  object        
+ 1   order_date          147610 non-null  datetime64[ns]
+ 2   order_status        128975 non-null  object        
+ 3   fulfillment_type    128975 non-null  object        
+ 4   sales_channel       128975 non-null  object        
+ 5   ship_service_level  128975 non-null  object        
+ 6   product_style       165367 non-null  object        
+ 7   sku                 163933 non-null  object        
+ 8   product_asin        128975 non-null  object        
+ 9   courier_status      122103 non-null  object        
+ 10  quantity            166407 non-null  int64         
+ 11  currency            121180 non-null  object        
+ 12  amount              121180 non-null  float64       
+ 13  ship_city           128942 non-null  object        
+ 14  ship_state          128942 non-null  object        
+ 15  ship_postal_code    128975 non-null  object        
+ 16  ship_country        128942 non-null  object        
+ 17  promotion_ids       79822 non-null   object        
+ 18  is_b2b              128975 non-null  object        
+ 19  fulfillment_by      39277 non-null   object        
+ 20  order_month         37407 non-null   object        
+ 21  customer_name       36392 non-null   object        
+ 22  unit_price          36391 non-null   float64       
+ 23  total_amount        36391 non-null   float64       
+ 24  design_no           157399 non-null  object        
+ 25  current_stock       157399 non-null  float64       
+ 26  product_category    157399 non-null  object        
+ 27  product_size        157399 non-null  object        
+ 28  product_color       157399 non-null  object        
+dtypes: datetime64[ns](1), float64(4), int64(1), object(23)
+memory usage: 36.8+ MB
+2025-05-31 11:38:06,306 - INFO - --- Starting Final Cleaning and Data Quality Assurance ---
+2025-05-31 11:38:06,372 - INFO - Dropped 2474 rows with missing 'sku'.
+2025-05-31 11:38:06,402 - INFO - Converted 'is_b2b' to boolean. Dtype: bool
+/home/mnizhadali/Desktop/e-commerce_project/etl_pipeline.py:242: FutureWarning: A value is trying to be set on a copy of a DataFrame or Series through chained assignment using an inplace method.
+The behavior will change in pandas 3.0. This inplace method will never work because the intermediate object on which we are setting values always behaves as a copy.
+
+For example, when doing 'df[col].method(value, inplace=True)', try using 'df.method({col: value}, inplace=True)' or df[col] = df[col].method(value) instead, to perform the operation inplace on the original object.
+
+
+  df_final_sales[col].fillna(0, inplace=True)
+2025-05-31 11:38:06,403 - INFO - Filled 42753 missing values in 'amount' with 0.
+2025-05-31 11:38:06,404 - INFO - Filled 128976 missing values in 'unit_price' with 0.
+2025-05-31 11:38:06,405 - INFO - Filled 128976 missing values in 'total_amount' with 0.
+2025-05-31 11:38:06,406 - INFO - Filled 9008 missing values in 'current_stock' with 0.
+2025-05-31 11:38:06,408 - INFO - Handled missing numerical values and ensured correct dtypes.
+2025-05-31 11:38:06,455 - INFO - Dropped 17740 rows with missing 'order_date'.
+2025-05-31 11:38:06,463 - INFO - Ensured 'order_date' is datetime type.
+/home/mnizhadali/Desktop/e-commerce_project/etl_pipeline.py:276: FutureWarning: A value is trying to be set on a copy of a DataFrame or Series through chained assignment using an inplace method.
+The behavior will change in pandas 3.0. This inplace method will never work because the intermediate object on which we are setting values always behaves as a copy.
+
+For example, when doing 'df[col].method(value, inplace=True)', try using 'df.method({col: value}, inplace=True)' or df[col] = df[col].method(value) instead, to perform the operation inplace on the original object.
+
+
+  df_final_sales[col].fillna('Unknown', inplace=True)
+2025-05-31 11:38:06,474 - INFO - Filled 8096 missing values in 'product_category' with 'Unknown'.
+2025-05-31 11:38:06,488 - INFO - Filled 8096 missing values in 'product_size' with 'Unknown'.
+2025-05-31 11:38:06,499 - INFO - Filled 8096 missing values in 'product_color' with 'Unknown'.
+2025-05-31 11:38:06,510 - INFO - Filled 8096 missing values in 'design_no' with 'Unknown'.
+2025-05-31 11:38:06,521 - INFO - Filled 24090 missing values in 'courier_status' with 'Unknown'.
+2025-05-31 11:38:06,532 - INFO - Filled 25013 missing values in 'currency' with 'Unknown'.
+2025-05-31 11:38:06,543 - INFO - Filled 106916 missing values in 'fulfillment_by' with 'Unknown'.
+2025-05-31 11:38:06,551 - INFO - Filled 128975 missing values in 'order_month' with 'Unknown'.
+2025-05-31 11:38:06,559 - INFO - Filled 128975 missing values in 'customer_name' with 'Unknown'.
+2025-05-31 11:38:06,574 - INFO - Filled 17218 missing values in 'order_id' with 'Unknown'.
+2025-05-31 11:38:06,585 - INFO - Filled 17218 missing values in 'order_status' with 'Unknown'.
+2025-05-31 11:38:06,596 - INFO - Filled 17218 missing values in 'fulfillment_type' with 'Unknown'.
+2025-05-31 11:38:06,606 - INFO - Filled 17218 missing values in 'sales_channel' with 'Unknown'.
+2025-05-31 11:38:06,617 - INFO - Filled 17218 missing values in 'ship_service_level' with 'Unknown'.
+2025-05-31 11:38:06,628 - INFO - Filled 17218 missing values in 'product_asin' with 'Unknown'.
+2025-05-31 11:38:06,639 - INFO - Filled 17251 missing values in 'ship_city' with 'Unknown'.
+2025-05-31 11:38:06,650 - INFO - Filled 17251 missing values in 'ship_state' with 'Unknown'.
+2025-05-31 11:38:06,661 - INFO - Filled 17218 missing values in 'ship_postal_code' with 'Unknown'.
+2025-05-31 11:38:06,672 - INFO - Filled 17251 missing values in 'ship_country' with 'Unknown'.
+2025-05-31 11:38:06,686 - INFO - Filled 66371 missing values in 'promotion_ids' with 'Unknown'.
+2025-05-31 11:38:06,687 - INFO - Filled remaining missing categorical values with 'Unknown'.
+<class 'pandas.core.frame.DataFrame'>
+Index: 146193 entries, 0 to 146209
+Data columns (total 29 columns):
+ #   Column              Non-Null Count   Dtype         
+---  ------              --------------   -----         
+ 0   order_id            146193 non-null  object        
+ 1   order_date          146193 non-null  datetime64[ns]
+ 2   order_status        146193 non-null  object        
+ 3   fulfillment_type    146193 non-null  object        
+ 4   sales_channel       146193 non-null  object        
+ 5   ship_service_level  146193 non-null  object        
+ 6   product_style       146193 non-null  object        
+ 7   sku                 146193 non-null  object        
+ 8   product_asin        146193 non-null  object        
+ 9   courier_status      146193 non-null  object        
+ 10  quantity            146193 non-null  int64         
+ 11  currency            146193 non-null  object        
+ 12  amount              146193 non-null  float64       
+ 13  ship_city           146193 non-null  object        
+ 14  ship_state          146193 non-null  object        
+ 15  ship_postal_code    146193 non-null  object        
+ 16  ship_country        146193 non-null  object        
+ 17  promotion_ids       146193 non-null  object        
+ 18  is_b2b              146193 non-null  bool          
+ 19  fulfillment_by      146193 non-null  object        
+ 20  order_month         146193 non-null  object        
+ 21  customer_name       146193 non-null  object        
+ 22  unit_price          146193 non-null  float64       
+ 23  total_amount        146193 non-null  float64       
+ 24  design_no           146193 non-null  object        
+ 25  current_stock       146193 non-null  int64         
+ 26  product_category    146193 non-null  object        
+ 27  product_size        146193 non-null  object        
+ 28  product_color       146193 non-null  object        
+dtypes: bool(1), datetime64[ns](1), float64(3), int64(2), object(22)
+memory usage: 32.5+ MB
+2025-05-31 11:38:06,917 - INFO - --- Final Cleaning and Data Quality Assurance Complete ---
+2025-05-31 11:38:06,917 - INFO - --- Starting Feature Engineering ---
+2025-05-31 11:38:06,928 - INFO - Calculated 'total_price' (quantity * unit_price).
+2025-05-31 11:38:06,928 - INFO - --- E-commerce Data Pipeline Completed Successfully (Data Transformation Phase) ---
+2025-05-31 11:38:06,928 - INFO - Final DataFrame shape: (146193, 30)
+2025-05-31 11:38:06,933 - INFO - --- Starting data load into PostgreSQL table: 'sales_fact' ---
+2025-05-31 11:38:06,984 - INFO - PostgreSQL engine created successfully.
+2025-05-31 11:38:31,757 - INFO - Successfully loaded 146193 rows into 'sales_fact' table.
+2025-05-31 11:38:31,758 - INFO - PostgreSQL connection closed.
+2025-05-31 11:38:31,758 - INFO - --- ALL ETL Pipeline steps completed successfully! Data loaded to PostgreSQL. ---

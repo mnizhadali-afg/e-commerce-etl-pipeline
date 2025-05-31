@@ -68,7 +68,7 @@ SALE_TYPES = {
 }
 
 
-load_dotenv() # Load variables from .env file
+load_dotenv()
 
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),        # No default needed if .env is mandatory
@@ -78,6 +78,11 @@ DB_CONFIG = {
     "password": quote_plus(os.getenv("DB_PASSWORD")) # Still need to encode!
 }
 TABLE_NAME = "sales_fact"
+
+# --- ADD THESE DEBUG PRINTS ---
+print(f"DEBUG: Raw DB_USER from .env: {os.getenv('DB_USER')}")
+print(f"DEBUG: Raw DB_PASSWORD from .env: {os.getenv('DB_PASSWORD')}")
+print(f"DEBUG: Password after quote_plus: {DB_CONFIG['password']}")
 
 
 # --- Helper Function for Data Cleaning ---
@@ -285,27 +290,27 @@ def clean_and_qa_final_sales_data(df_final_sales):
 
 
 def engineer_features(df_final_sales):
-    """Engineers time-based and price-related features."""
     logging.info("--- Starting Feature Engineering ---")
 
-    # Time-based features
-    df_final_sales['order_year'] = df_final_sales['order_date'].dt.year
-    df_final_sales['order_month_num'] = df_final_sales['order_date'].dt.month
-    df_final_sales['order_day_of_week'] = df_final_sales['order_date'].dt.dayofweek
-    df_final_sales['order_hour'] = df_final_sales['order_date'].dt.hour
-    logging.info("Extracted year, month, day of week, and hour from 'order_date'.")
+    # First, convert to numeric. Coerce errors will turn invalid values into NaN.
+    df_final_sales['quantity'] = pd.to_numeric(df_final_sales['quantity'], errors='coerce')
+    df_final_sales['unit_price'] = pd.to_numeric(df_final_sales['unit_price'], errors='coerce')
 
-    # Calculate total_price (quantity * unit_price)
-    # Ensure 'quantity' and 'unit_price' are numeric before multiplication
-    df_final_sales['quantity'] = pd.to_numeric(df_final_sales['quantity'], errors='coerce').fillna(0)
-    df_final_sales['unit_price'] = pd.to_numeric(df_final_sales['unit_price'], errors='coerce').fillna(0)
+    # Drop rows where quantity or unit_price are missing/invalid
+    initial_missing_qty_price = df_final_sales[['quantity', 'unit_price']].isnull().any(axis=1).sum()
+    if initial_missing_qty_price > 0:
+        df_final_sales.dropna(subset=['quantity', 'unit_price'], inplace=True)
+        logging.warning(f"Dropped {initial_missing_qty_price} rows due to missing/invalid 'quantity' or 'unit_price'.")
+        # After dropping, if there are still NaNs, fill with 0 for remaining valid cases if desired.
+        # Or, if this makes sense:
+        # df_final_sales['quantity'].fillna(0, inplace=True) # if you are absolutely sure 0 quantity is valid
+        # df_final_sales['unit_price'].fillna(0, inplace=True) # if you are absolutely sure 0 unit_price is valid
+
+    # Calculate total_price AFTER ensuring valid numbers
     df_final_sales['total_price'] = df_final_sales['quantity'] * df_final_sales['unit_price']
     logging.info("Calculated 'total_price' (quantity * unit_price).")
 
-    logging.debug(f"Final Sales Data head after Feature Engineering:\n{df_final_sales.head().to_string()}")
-    logging.debug(f"Final Sales Data info after Feature Engineering:\n{df_final_sales.info()}")
-    logging.debug(f"Final Sales Data missing values after Feature Engineering:\n{df_final_sales.isnull().sum().to_string()}")
-    logging.info("--- Feature Engineering Complete ---")
+    # ... rest of the function
     return df_final_sales
 
 # --- Main Pipeline Execution ---
