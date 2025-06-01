@@ -9,13 +9,14 @@ from sqlalchemy import create_engine
 import os # For environment variables
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
+import hashlib
 
 # Set up logging
 # Configure logging to output to console (stdout) and a file (optional)
 # You can change the level to logging.DEBUG to see more detailed messages during development
 logging.basicConfig(
     level=logging.INFO, # Change to logging.DEBUG for more verbose output
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(levelname)s - %(message)s', 
     handlers=[
         logging.StreamHandler(sys.stdout), # Output to console
         # logging.FileHandler('pipeline_log.log') # Uncomment to also log to a file
@@ -220,97 +221,146 @@ def integrate_sales_data(df_amazon, df_international, df_sale):
     return df_final_sales
 
 def clean_and_qa_final_sales_data(df_final_sales):
-    """Performs final cleaning and quality assurance checks on the integrated DataFrame."""
-    logging.info("--- Starting Final Cleaning and Data Quality Assurance ---")
+    """
+    Performs final cleaning and quality assurance checks on the combined sales data.
+    Ensures data types are correct, handles missing values, and standardizes channels.
+    """
+    logging.info("--- Starting Final Cleaning and QA ---")
 
-    # 1. Handle missing 'sku' values
-    initial_sku_missing = df_final_sales['sku'].isnull().sum()
-    if initial_sku_missing > 0:
-        df_final_sales.dropna(subset=['sku'], inplace=True)
-        logging.info(f"Dropped {initial_sku_missing} rows with missing 'sku'.")
+    # Convert object columns to numeric where appropriate, coercing errors
+    numeric_cols = ['quantity', 'unit_price', 'amount', 'total_amount', 'current_stock']
+    for col in numeric_cols:
+        if col in df_final_sales.columns:
+            df_final_sales[col] = pd.to_numeric(df_final_sales[col], errors='coerce')
 
-    # 2. Convert 'is_b2b' to boolean
-    df_final_sales['is_b2b'] = df_final_sales['is_b2b'].apply(lambda x: True if str(x).lower() == 'true' else False)
-    logging.info(f"Converted 'is_b2b' to boolean. Dtype: {df_final_sales['is_b2b'].dtype}")
-
-    # 3. Handle missing numerical values (amounts, prices, current_stock)
+    # Fill NaN numerical values with 0
     numerical_cols_to_fill_zero = ['amount', 'unit_price', 'total_amount', 'current_stock']
     for col in numerical_cols_to_fill_zero:
         if col in df_final_sales.columns:
-            missing_count = df_final_sales[col].isnull().sum()
-            if missing_count > 0:
-                df_final_sales[col].fillna(0, inplace=True)
-                logging.info(f"Filled {missing_count} missing values in '{col}' with 0.")
-    # Ensure correct numeric dtypes after filling
-    df_final_sales['amount'] = pd.to_numeric(df_final_sales['amount'], errors='coerce')
-    df_final_sales['unit_price'] = pd.to_numeric(df_final_sales['unit_price'], errors='coerce')
-    df_final_sales['total_amount'] = pd.to_numeric(df_final_sales['total_amount'], errors='coerce')
-    df_final_sales['current_stock'] = df_final_sales['current_stock'].astype(np.int64)
-    logging.info("Handled missing numerical values and ensured correct dtypes.")
+            df_final_sales[col] = df_final_sales[col].fillna(0)
+    logging.info("Filled NaN numerical values with 0.")
+
+    # Convert date column to datetime objects
+    df_final_sales['order_date'] = pd.to_datetime(df_final_sales['order_date'], errors='coerce', dayfirst=True)
+    logging.info("Converted 'order_date' to datetime format.")
+
+    # Handle missing date values - dropping rows for now, can be adjusted
+    initial_rows = len(df_final_sales)
+    df_final_sales.dropna(subset=['order_date'], inplace=True)
+    if len(df_final_sales) < initial_rows:
+        logging.warning(f"Dropped {initial_rows - len(df_final_sales)} rows due to invalid 'order_date'.")
+
+    # Clean and standardize sales channels
+    # First, apply specific channel logic where order_id is NOT NaN
+    # (Existing logic, no change needed here)
+    df_final_sales['sales_channel'] = np.where(
+        df_final_sales['order_id'].notna() & (
+            df_final_sales['order_id'].str.startswith('S') |
+            df_final_sales['order_id'].str.startswith('D')
+        ),
+        'Non-Amazon',
+        df_final_sales['sales_channel']
+    )
+    df_final_sales['sales_channel'] = np.where(
+        df_final_sales['order_id'].notna() &
+        df_final_sales['order_id'].str.startswith('B'),
+        'Amazon.in',
+        df_final_sales['sales_channel']
+    )
+
+    # Generate synthetic order_ids for originally NaN order_ids (international sales without order IDs)
+    # This addresses the 'Unknown' order count issue
+    logging.info("Generating synthetic order_ids for previously missing order_ids.")
+    missing_order_id_mask = df_final_sales['order_id'].isna()
+
+    # Create a unique string for hashing from relevant columns for these rows
+    # Include 'CUSTOMER', 'DATE', 'Style', 'SKU' as they seem to identify unique transactions in international data
+    # Ensure these columns exist and are handled for NaNs before hashing
+    cols_for_hash = ['CUSTOMER', 'DATE', 'Style', 'SKU', 'PCS', 'RATE', 'GROSS AMT'] # Adding more columns for uniqueness
+    for col in cols_for_hash:
+        if col not in df_final_sales.columns: # Map back to original names if needed
+             logging.warning(f"Column '{col}' not found in df_final_sales for hashing. Check mapping in load_and_clean_source_data.")
+             # Fallback to an empty string or 'Unknown' if column missing or entirely NaN
+             df_final_sales[col] = df_final_sales.get(col, pd.Series(np.nan, index=df_final_sales.index)).fillna('')
+        else:
+             df_final_sales[col] = df_final_sales[col].fillna('').astype(str) # Ensure string type for hashing
 
 
-    # 4. Handle missing `order_date`
-    initial_order_date_missing = df_final_sales['order_date'].isnull().sum()
-    if initial_order_date_missing > 0:
-        df_final_sales.dropna(subset=['order_date'], inplace=True)
-        logging.info(f"Dropped {initial_order_date_missing} rows with missing 'order_date'.")
-    # Ensure order_date is datetime type after drops
-    df_final_sales['order_date'] = pd.to_datetime(df_final_sales['order_date'], errors='coerce')
-    logging.info("Ensured 'order_date' is datetime type.")
+    df_final_sales.loc[missing_order_id_mask, 'order_id'] = df_final_sales[missing_order_id_mask].apply(
+        lambda row: 'INT_' + hashlib.md5(
+            (str(row['CUSTOMER']) + str(row['DATE']) + str(row['Style']) + str(row['SKU']) + str(row['PCS']) + str(row['RATE']) + str(row['GROSS AMT'])).encode('utf-8')
+        ).hexdigest(), axis=1
+    )
+    logging.info("Generated synthetic order_ids.")
+
+    # Now, fill remaining NaN sales_channels with 'Unknown' after order_id generation
+    # This will still assign 'Unknown' to those that don't match Amazon.in or Non-Amazon prefixes
+    df_final_sales['sales_channel'] = df_final_sales['sales_channel'].fillna('Unknown')
+    logging.info("Filled remaining NaN sales channels with 'Unknown'.")
 
 
-    # 5. Handle missing categorical columns with 'Unknown'
-    categorical_cols_to_fill_unknown = [
-        'product_category', 'product_size', 'product_color', 'design_no',
-        'courier_status', 'currency', 'fulfillment_by', 'order_month',
-        'customer_name', 'product_style', 'order_id', 'order_status',
-        'fulfillment_type', 'sales_channel', 'ship_service_level',
-        'product_asin', 'ship_city', 'ship_state', 'ship_postal_code',
-        'ship_country', 'promotion_ids'
-    ] # Combined from original Phase 4 & 5 lists
-
-    for col in categorical_cols_to_fill_unknown:
+    # Final check on data types and missing values
+    for col in ['sales_channel', 'order_id', 'Style', 'SKU', 'Size', 'customer_id']:
         if col in df_final_sales.columns:
-            missing_count = df_final_sales[col].isnull().sum()
-            if missing_count > 0:
-                df_final_sales[col].fillna('Unknown', inplace=True)
-                logging.info(f"Filled {missing_count} missing values in '{col}' with 'Unknown'.")
+            df_final_sales[col] = df_final_sales[col].fillna('Unknown') # Fill string columns too
+    logging.info("Filled NaN string values with 'Unknown'.")
 
-    logging.info("Filled remaining missing categorical values with 'Unknown'.")
-    logging.debug(f"Final Sales Data head after QA:\n{df_final_sales.head().to_string()}")
-    logging.debug(f"Final Sales Data info after QA:\n{df_final_sales.info()}")
-    logging.debug(f"Final Sales Data missing values after QA:\n{df_final_sales.isnull().sum().to_string()}")
 
-    # Assert no missing critical columns before feature engineering
-    assert df_final_sales['order_date'].notna().all(), "Critical error: 'order_date' column still has NaNs after cleaning."
-    assert df_final_sales['sku'].notna().all(), "Critical error: 'sku' column still has NaNs after cleaning."
+    # Drop any rows that still have critical NaNs after all filling (e.g., if order_id was all NaN and couldn't be hashed)
+    initial_rows = len(df_final_sales)
+    df_final_sales.dropna(subset=['order_id', 'sales_channel'], inplace=True)
+    if len(df_final_sales) < initial_rows:
+        logging.warning(f"Dropped {initial_rows - len(df_final_sales)} rows due to critical missing values after filling.")
 
-    logging.info("--- Final Cleaning and Data Quality Assurance Complete ---")
+    logging.debug(f"Final Sales Data head after Cleaning and QA:\n{df_final_sales.head().to_string()}")
+    logging.debug(f"Final Sales Data info after Cleaning and QA:\n{df_final_sales.info()}")
+    logging.debug(f"Final Sales Data missing values after Cleaning and QA:\n{df_final_sales.isnull().sum().to_string()}")
+    logging.info("--- Final Cleaning and QA Complete ---")
     return df_final_sales
 
 
 def engineer_features(df_final_sales):
+    """Engineers time-based and price-related features."""
     logging.info("--- Starting Feature Engineering ---")
 
-    # First, convert to numeric. Coerce errors will turn invalid values into NaN.
-    df_final_sales['quantity'] = pd.to_numeric(df_final_sales['quantity'], errors='coerce')
-    df_final_sales['unit_price'] = pd.to_numeric(df_final_sales['unit_price'], errors='coerce')
+    # Time-based features
+    df_final_sales['order_year'] = df_final_sales['order_date'].dt.year
+    df_final_sales['order_month_num'] = df_final_sales['order_date'].dt.month
+    df_final_sales['order_day_of_week'] = df_final_sales['order_date'].dt.dayofweek
+    df_final_sales['order_hour'] = df_final_sales['order_date'].dt.hour
+    logging.info("Extracted year, month, day of week, and hour from 'order_date'.")
 
-    # Drop rows where quantity or unit_price are missing/invalid
-    initial_missing_qty_price = df_final_sales[['quantity', 'unit_price']].isnull().any(axis=1).sum()
-    if initial_missing_qty_price > 0:
-        df_final_sales.dropna(subset=['quantity', 'unit_price'], inplace=True)
-        logging.warning(f"Dropped {initial_missing_qty_price} rows due to missing/invalid 'quantity' or 'unit_price'.")
-        # After dropping, if there are still NaNs, fill with 0 for remaining valid cases if desired.
-        # Or, if this makes sense:
-        # df_final_sales['quantity'].fillna(0, inplace=True) # if you are absolutely sure 0 quantity is valid
-        # df_final_sales['unit_price'].fillna(0, inplace=True) # if you are absolutely sure 0 unit_price is valid
+    # Ensure numeric types
+    df_final_sales['quantity'] = pd.to_numeric(df_final_sales['quantity'], errors='coerce').fillna(0)
+    df_final_sales['unit_price'] = pd.to_numeric(df_final_sales['unit_price'], errors='coerce').fillna(0)
+    df_final_sales['amount'] = pd.to_numeric(df_final_sales['amount'], errors='coerce').fillna(0)
 
-    # Calculate total_price AFTER ensuring valid numbers
-    df_final_sales['total_price'] = df_final_sales['quantity'] * df_final_sales['unit_price']
-    logging.info("Calculated 'total_price' (quantity * unit_price).")
+    # Calculate total_price without intermediate column
+    df_final_sales['total_price'] = np.where(
+        df_final_sales['amount'] > 0,
+        df_final_sales['amount'],
+        np.where(
+            df_final_sales['total_amount'] > 0,
+            df_final_sales['total_amount'],
+            df_final_sales['quantity'] * df_final_sales['unit_price']
+        )
+    )
 
-    # ... rest of the function
+    logging.info("Calculated 'total_price' using 'amount' if available, else 'quantity * unit_price'.")
+
+    # Add validation for zero prices
+    zero_prices = df_final_sales[
+        (df_final_sales['total_price'] == 0) & 
+        (df_final_sales['quantity'] > 0)
+    ]
+    if not zero_prices.empty:
+        logging.warning(f"Found {len(zero_prices)} orders with quantity but zero price!")
+        logging.debug(zero_prices[['sales_channel', 'sku', 'quantity', 'unit_price', 'amount', 'total_amount', 'total_price']].head())
+
+    logging.debug(f"Final Sales Data head after Feature Engineering:\n{df_final_sales.head().to_string()}")
+    logging.debug(f"Final Sales Data info after Feature Engineering:\n{df_final_sales.info()}")
+    logging.debug(f"Final Sales Data missing values after Feature Engineering:\n{df_final_sales.isnull().sum().to_string()}")
+    logging.info("--- Feature Engineering Complete ---")
     return df_final_sales
 
 # --- Main Pipeline Execution ---
@@ -342,8 +392,6 @@ if __name__ == "__main__":
     # from your_db_module import load_to_postgresql
     # load_to_postgresql(df_final_sales, 'your_table_name')
     
-#      integrate_sales_data, clean_and_qa_final_sales_data, engineer_features) ...
-
 def load_data_to_postgresql(df, table_name, db_config):
     """
     Loads a Pandas DataFrame into a PostgreSQL table.
@@ -355,14 +403,31 @@ def load_data_to_postgresql(df, table_name, db_config):
         f"{db_config['host']}:{db_config['port']}/{db_config['database']}"
     )
 
+    # Define the columns that should be in the final table
+    final_columns = [
+        'order_id', 'order_date', 'order_status', 'fulfillment_type', 
+        'sales_channel', 'ship_service_level', 'product_style', 'sku',
+        'product_asin', 'courier_status', 'quantity', 'currency', 
+        'amount', 'ship_city', 'ship_state', 'ship_postal_code',
+        'ship_country', 'promotion_ids', 'is_b2b', 'fulfillment_by',
+        'customer_name', 'unit_price', 'total_amount', 'design_no',
+        'current_stock', 'product_category', 'product_size', 'product_color',
+        'order_year', 'order_month_num', 'order_day_of_week', 'order_hour',
+        'total_price'
+    ]
+
+    # Filter DataFrame to only include the columns that exist in PostgreSQL
+    df_to_load = df[final_columns].copy()
+
     try:
         engine = create_engine(db_url)
         logging.info("PostgreSQL engine created successfully.")
 
-        # Using 'append' to add new rows. 'replace' would drop and recreate the table.
-        df.to_sql(table_name, engine, if_exists='append', index=False, chunksize=1000)
+        # Use the filtered DataFrame
+        df_to_load.to_sql(table_name, engine, if_exists='append', 
+                         index=False, chunksize=1000)
 
-        logging.info(f"Successfully loaded {len(df)} rows into '{table_name}' table.")
+        logging.info(f"Successfully loaded {len(df_to_load)} rows into '{table_name}' table.")
 
     except Exception as e:
         logging.error(f"Error loading data to PostgreSQL: {e}")
