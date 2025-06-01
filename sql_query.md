@@ -333,16 +333,6 @@ BOTTOM               |                 349.00 |                            1 |  
 
 ---
 
-Thank you for providing the `\d sales_fact` output!
-
-You are absolutely correct. My apologies again for the oversight. The schema clearly shows that the column for customer identification is named **`customer_name`**, not `customer_id`.
-
-This means the `sales_fact` table was created with the `customer_name` column, which aligns with how the international sales data's `CUSTOMER` column was handled and likely merged into the final DataFrame before loading.
-
-Let's correct the SQL queries for "Customer Behavior" to use the `customer_name` column:
-
----
-
 ## **Section 3: Customer Behavior (Corrected Queries)**
 
 These queries provide insights into your customer base, now correctly using the `customer_name` column.
@@ -452,9 +442,9 @@ ORDER BY
 ```
 ### RESULT:
 ```sql
-         order_hour | hourly_revenue | hourly_quantity_sold | hourly_total_orders 
-        ------------+----------------+----------------------+---------------------
-                0 |    94360840.49 |               140666 |              120379
-        (1 row)
-
+ order_hour | hourly_revenue | hourly_quantity_sold | hourly_total_orders 
+------------+----------------+----------------------+---------------------
+          0 |    94360840.49 |               140666 |              120379
+(1 row)
+```
 ---
